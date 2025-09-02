@@ -1,0 +1,1631 @@
+// =====================================================
+// OPTIMIZED CAT TREE PIECES SYSTEM -v22- RANDOM COLOR SELECTION
+// =====================================================
+
+// Performance debugging flag
+const DEBUG_PERFORMANCE = false;
+const log = (message) => DEBUG_PERFORMANCE && console.log(message);
+
+const CatTreePieces = {
+  
+  // ========================================
+  // MATERIAL SYSTEM - COST MULTIPLIERS & PROPERTIES
+  // ========================================
+  
+  /**
+   * Material definitions with cost multipliers and visual properties
+   * Each material affects the final cost and appearance of pieces
+   */
+  materials: {
+    wood: { 
+      name: 'Wood', 
+      costMultiplier: 1.0, 
+      color: SharedUtils.COLORS.MATERIALS.wood,
+      description: 'Standard wood construction - balanced cost and durability'
+    },
+    fabric: { 
+      name: 'Fabric Wrap', 
+      costMultiplier: 0.7, 
+      color: SharedUtils.COLORS.MATERIALS.fabric,
+      description: 'Soft fabric covering - comfortable and affordable'
+    },
+    sisal: { 
+      name: 'Sisal Wrap', 
+      costMultiplier: 1.2, 
+      color: SharedUtils.COLORS.MATERIALS.sisal,
+      description: 'Natural sisal rope - perfect for scratching'
+    },
+    carpet: { 
+      name: 'Carpet', 
+      costMultiplier: 1.3, 
+      color: SharedUtils.COLORS.MATERIALS.carpet,
+      description: 'Plush carpet covering - luxurious feel'
+    },
+    cushion: { 
+      name: 'Cushion', 
+      costMultiplier: 1.3, 
+      color: SharedUtils.COLORS.MATERIALS.cushion,
+      description: 'Soft cushioned surface - maximum comfort'
+    }
+  },
+
+  // ========================================
+  // PIECE CATEGORY DEFINITIONS - ORGANIZED BY FUNCTIONALITY
+  // ========================================
+  
+  /**
+   * Complete piece category system with variants for each type
+   * Organized by functional purpose: shelter, movement, rest, scratching, climbing
+   */
+  categories: {
+    
+    // ========================================
+    // SHELTER PIECES - ENCLOSED SPACES
+    // ========================================
+    house: {
+      name: 'Cat House',
+      icon: '🏠',
+      description: 'Enclosed shelters for privacy and security',
+      variants: [
+        {
+          id: 'house-basic', 
+          name: 'Basic House', 
+          baseWidth: 14, baseHeight: 12, baseDepth: 14, baseCost: 35,
+          hollow: true, shape: 'box', 
+          availableMaterials: ['wood', 'fabric'], 
+          availableColors: true,
+          description: 'Simple rectangular hideaway'
+        },
+        {
+          id: 'house-aframe', 
+          name: 'A-Frame House', 
+          baseWidth: 16, baseHeight: 14, baseDepth: 14, baseCost: 42,
+          hollow: true, shape: 'aframe', 
+          availableMaterials: ['wood', 'fabric'], 
+          availableColors: true,
+          description: 'Distinctive triangular roof design'
+        },
+        {
+          id: 'house-cylinder', 
+          name: 'Cylinder House', 
+          baseWidth: 12, baseHeight: 12, baseDepth: 12, baseCost: 38,
+          hollow: true, shape: 'cylinder', 
+          availableMaterials: ['wood', 'fabric', 'sisal'], 
+          availableColors: true,
+          description: 'Round house with curved walls'
+        }
+      ]
+    },
+
+    // ========================================
+    // MOVEMENT PIECES - TUNNELS & PASSAGES
+    // ========================================
+    tunnel: {
+      name: 'Tunnel',
+      icon: '🚇',
+      description: 'Connected passages for movement and play',
+      variants: [
+        {
+          id: 'tunnel-straight', 
+          name: 'Straight Tunnel', 
+          baseWidth: 16, baseHeight: 8, baseDepth: 8, baseCost: 30,
+          hollow: true, shape: 'tunnel', 
+          availableMaterials: ['wood', 'fabric', 'carpet'], 
+          availableColors: true,
+          description: 'Direct passage between areas'
+        },
+        {
+          id: 'tunnel-cylinder', 
+          name: 'Tube Tunnel', 
+          baseWidth: 16, baseHeight: 10, baseDepth: 10, baseCost: 35,
+          hollow: true, shape: 'tube-tunnel', 
+          availableMaterials: ['wood', 'fabric', 'carpet'], 
+          availableColors: true,
+          description: 'Cylindrical tube for crawling'
+        },
+        {
+          id: 'tunnel-curve90', 
+          name: '90° Curved Tunnel', 
+          baseWidth: 16, baseHeight: 8, baseDepth: 16, baseCost: 42,
+          hollow: true, shape: 'tunnel-curve90', 
+          availableMaterials: ['wood', 'fabric', 'carpet'], 
+          availableColors: true,
+          description: 'Right-angle turn connector'
+        },
+        {
+          id: 'tunnel-ramp', 
+          name: 'Ramp Tunnel', 
+          baseWidth: 18, baseHeight: 8, baseDepth: 8, baseCost: 38,
+          hollow: true, shape: 'tunnel-ramp', 
+          availableMaterials: ['wood', 'fabric', 'carpet'], 
+          availableColors: true,
+          description: 'Sloped tunnel for elevation changes'
+        }
+      ]
+    },
+
+    // ========================================
+    // REST PIECES - ELEVATED PERCHES
+    // ========================================
+    perch: {
+      name: 'Perch',
+      icon: '🪑',
+      description: 'Elevated resting spots for observation',
+      variants: [
+        {
+          id: 'perch-rectangle', 
+          name: 'Rectangle Perch', 
+          baseWidth: 8, baseHeight: 0.5, baseDepth: 5, baseCost: 12,
+          hollow: false, shape: 'box', 
+          availableMaterials: ['wood', 'carpet', 'sisal'], 
+          availableColors: true,
+          description: 'Classic rectangular platform'
+        },
+        {
+          id: 'perch-circular', 
+          name: 'Circular Perch', 
+          baseWidth: 8, baseHeight: 0.5, baseDepth: 8, baseCost: 15,
+          hollow: false, shape: 'cylinder', 
+          availableMaterials: ['wood', 'carpet', 'sisal'], 
+          availableColors: true,
+          description: 'Round perching surface'
+        },
+        {
+          id: 'perch-lshaped', 
+          name: 'L-Shaped Perch', 
+          baseWidth: 10, baseHeight: 0.5, baseDepth: 8, baseCost: 18,
+          hollow: false, shape: 'lshaped', 
+          availableMaterials: ['wood', 'carpet'], 
+          availableColors: true,
+          description: 'Corner-fitting L-shaped design'
+        }
+      ]
+    },
+
+    // ========================================
+    // SCRATCHING PIECES - VERTICAL POSTS
+    // ========================================
+    post: {
+      name: 'Scratching Post',
+      icon: '🪵',
+      description: 'Vertical structures for scratching and climbing',
+      variants: [
+        {
+          id: 'post-straight', 
+          name: 'Straight Post', 
+          baseWidth: 3.5, baseHeight: 24, baseDepth: 3.5, baseCost: 20,
+          hollow: false, shape: 'cylinder', 
+          availableMaterials: ['wood', 'sisal', 'carpet'], 
+          availableColors: true,
+          description: 'Standard cylindrical scratching post'
+        },
+        {
+          id: 'post-tapered', 
+          name: 'Tapered Post', 
+          baseWidth: 5, baseHeight: 30, baseDepth: 5, baseCost: 28,
+          hollow: false, shape: 'tapered', 
+          availableMaterials: ['wood', 'sisal', 'carpet'], 
+          availableColors: true,
+          description: 'Tapered design for stability'
+        },
+        {
+          id: 'post-square', 
+          name: 'Square Post', 
+          baseWidth: 4, baseHeight: 24, baseDepth: 4, baseCost: 22,
+          hollow: false, shape: 'box', 
+          availableMaterials: ['wood', 'sisal', 'carpet'], 
+          availableColors: true,
+          description: 'Square post (4x4) wrapped in sisal for scratching or for support'
+        }
+      ]
+    },
+
+    // ========================================
+    // PLATFORM PIECES - HORIZONTAL SURFACES
+    // ========================================
+    platform: {
+      name: 'Platform',
+      icon: '⬜',
+      description: 'Flat surfaces for resting and as bases',
+      variants: [
+        {
+          id: 'platform-square', 
+          name: 'Square Platform', 
+          baseWidth: 12, baseHeight: 0.5, baseDepth: 12, baseCost: 15,
+          hollow: false, shape: 'box', 
+          availableMaterials: ['wood', 'carpet'], 
+          availableColors: true,
+          description: 'Basic square platform'
+        },
+        {
+          id: 'platform-round', 
+          name: 'Round Platform', 
+          baseWidth: 14, baseHeight: 0.5, baseDepth: 14, baseCost: 18,
+          hollow: false, shape: 'cylinder', 
+          availableMaterials: ['wood', 'carpet'], 
+          availableColors: true,
+          description: 'Circular platform surface'
+        },
+        {
+          id: 'platform-base', 
+          name: 'Base Platform', 
+          baseWidth: 24, baseHeight: 0.75, baseDepth: 16, baseCost: 25,
+          hollow: false, shape: 'box', 
+          availableMaterials: ['wood'], 
+          availableColors: true,
+          description: 'Large foundation platform'
+        },
+        {
+          id: 'platform-quarter-circle', 
+          name: 'Quarter Circle Platform', 
+          baseWidth: 12, baseHeight: 0.5, baseDepth: 12, baseCost: 16,
+          hollow: false, shape: 'quarter-circle', 
+          availableMaterials: ['wood', 'carpet'], 
+          availableColors: true,
+          description: 'Corner-fitting quarter circle'
+        },
+        {
+          id: 'platform-half-circle', 
+          name: 'Half Circle Platform', 
+          baseWidth: 14, baseHeight: 0.5, baseDepth: 10, baseCost: 17,
+          hollow: false, shape: 'semicircle', 
+          availableMaterials: ['wood', 'carpet'], 
+          availableColors: true,
+          description: 'Semi-circular platform'
+        },
+        {
+          id: 'platform-triangle', 
+          name: 'Triangle Platform', 
+          baseWidth: 12, baseHeight: 0.5, baseDepth: 10, baseCost: 14,
+          hollow: false, shape: 'triangle', 
+          availableMaterials: ['wood', 'carpet'], 
+          availableColors: true,
+          description: 'Triangular platform for tight spaces'
+        },
+        {
+          id: 'platform-hexagon', 
+          name: 'Hexagon Platform', 
+          baseWidth: 14, baseHeight: 0.5, baseDepth: 12, baseCost: 19,
+          hollow: false, shape: 'hexagon', 
+          availableMaterials: ['wood', 'carpet'], 
+          availableColors: true,
+          description: 'Six-sided platform design'
+        },
+        {
+          id: 'platform-oval', 
+          name: 'Oval Platform', 
+          baseWidth: 16, baseHeight: 0.5, baseDepth: 8, baseCost: 17,
+          hollow: false, shape: 'oval', 
+          availableMaterials: ['wood', 'carpet'], 
+          availableColors: true,
+          description: 'Elongated oval surface'
+        }
+      ]
+    },
+
+    // ========================================
+    // COMFORT PIECES - BEDDING & CUSHIONS
+    // ========================================
+    bedding: {
+      name: 'Bedding',
+      icon: '🛏️',
+      description: 'Soft surfaces for comfortable resting',
+      variants: [
+        {
+          id: 'bedding-cushion', 
+          name: 'Cushion', 
+          baseWidth: 10, baseHeight: 2, baseDepth: 8, baseCost: 8,
+          hollow: false, shape: 'cushion', 
+          availableMaterials: ['cushion', 'fabric'], 
+          availableColors: true,
+          description: 'Soft padded cushion'
+        },
+        {
+          id: 'bedding-mat', 
+          name: 'Sleeping Mat', 
+          baseWidth: 12, baseHeight: 0.25, baseDepth: 10, baseCost: 6,
+          hollow: false, shape: 'box', 
+          availableMaterials: ['fabric', 'carpet'], 
+          availableColors: true,
+          description: 'Thin mat for warmth'
+        },
+        {
+          id: 'bedding-raised-square',
+          name: 'Square Raised-Edge Bed',
+          baseWidth: 16, baseHeight: 3, baseDepth: 16, baseCost: 12,
+          hollow: false, shape: 'raised-edge-square',
+          availableMaterials: ['cushion', 'fabric'],
+          availableColors: true,
+          description: 'Square cushioned bed with plush raised border'
+        },
+        {
+          id: 'bedding-raised-round',
+          name: 'Round Raised-Edge Bed',
+          baseWidth: 16, baseHeight: 3, baseDepth: 16, baseCost: 14,
+          hollow: false, shape: 'raised-edge-round',
+          availableMaterials: ['cushion', 'fabric'],
+          availableColors: true,
+          description: 'Circular cushioned bed with plush raised border'
+        }
+      ]
+    },
+
+    // ========================================
+    // CLIMBING PIECES - VERTICAL SURFACES
+    // ========================================
+    panel: {
+      name: 'Climbing Panel',
+      icon: '🧱',
+      description: 'Vertical climbing and scratching surfaces',
+      variants: [
+        {
+          id: 'panel-basic', 
+          name: 'Basic Wall Panel', 
+          baseWidth: 18, baseHeight: 24, baseDepth: 1, baseCost: 22,
+          hollow: false, shape: 'panel', 
+          availableMaterials: ['wood', 'sisal', 'carpet', 'fabric'], 
+          availableColors: true,
+          description: 'Flat vertical climbing surface'
+        },
+        {
+          id: 'panel-triangle', 
+          name: 'Triangle Panel', 
+          baseWidth: 18, baseHeight: 24, baseDepth: 1, baseCost: 20,
+          hollow: false, shape: 'triangle-panel', 
+          availableMaterials: ['wood', 'sisal', 'carpet', 'fabric'], 
+          availableColors: true,
+          description: 'Triangular climbing surface'
+        },
+        {
+          id: 'panel-rockwall', 
+          name: 'Rock Wall Panel', 
+          baseWidth: 18, baseHeight: 24, baseDepth: 2, baseCost: 26,
+          hollow: false, shape: 'rock-wall-panel', 
+          availableMaterials: ['wood', 'sisal'], 
+          availableColors: true,
+          description: 'Textured rock climbing surface'
+        },
+        {
+          id: 'panel-honeycomb', 
+          name: 'Honeycomb Panel', 
+          baseWidth: 18, baseHeight: 24, baseDepth: 1.5, baseCost: 24,
+          hollow: false, shape: 'honeycomb-panel', 
+          availableMaterials: ['wood', 'fabric'], 
+          availableColors: true,
+          description: 'Hexagonal pattern climbing surface'
+        }
+      ]
+    }
+  },
+ 
+  // ========================================
+  // OPENING TYPES - DOORS & WINDOWS FOR HOLLOW PIECES
+  // ========================================
+  
+  /**
+   * Opening definitions for hollow pieces
+   * Each opening type has specific dimensions and shape characteristics
+   */
+  openingTypes: {
+    'round-entrance': { 
+      name: 'Round Entrance', 
+      width: 8, height: 8, shape: 'circle', cost: 0,
+      description: 'Classic circular entrance hole'
+    },
+    'square-entrance': { 
+      name: 'Square Entrance', 
+      width: 6, height: 6, shape: 'square', cost: 0,
+      description: 'Square doorway opening'
+    },
+    'window-small': { 
+      name: 'Small Window', 
+      width: 4, height: 3, shape: 'rectangle', cost: 0,
+      description: 'Small viewing window'
+    },
+    'window-large': { 
+      name: 'Large Window', 
+      width: 6, height: 4, shape: 'rectangle', cost: 0,
+      description: 'Large observation window'
+    },
+    'arch-entrance': { 
+      name: 'Arch Entrance', 
+      width: 7, height: 9, shape: 'arch', cost: 0,
+      description: 'Arched doorway entrance'
+    }
+  },
+
+  // ========================================
+  // UTILITY FUNCTIONS - PIECE MANAGEMENT
+  // ========================================
+  
+  /**
+   * Finds a variant definition by its ID
+   * @param {string} variantId - The variant ID to search for
+   * @returns {Object|null} Variant object or null if not found
+   */
+  getVariantById: (variantId) => {
+    for (const categoryData of Object.values(CatTreePieces.categories)) {
+      const variant = categoryData.variants.find(v => v.id === variantId);
+      if (variant) return variant;
+    }
+    return null;
+  },
+
+  /**
+   * Creates a piece instance from a variant definition
+   * @param {string} variantId - ID of the variant to create
+   * @param {Object} customizations - Optional customizations to apply
+   * @returns {Object|null} New piece object or null if variant not found
+   */
+  createPieceFromVariant: (variantId, customizations = {}) => {
+    const variant = CatTreePieces.getVariantById(variantId);
+    if (!variant) return null;
+
+    // Use customization color if provided, otherwise use random color from palette
+    const pieceColor = customizations.color !== undefined && customizations.color !== null 
+      ? customizations.color 
+      : CatTreePieces.getRandomColor();  // Changed from getDefaultColor to getRandomColor
+
+    return {
+      id: `${variantId}-${Date.now()}`,
+      variantId, 
+      name: variant.name,
+      width: customizations.width || variant.baseWidth,
+      height: customizations.height || variant.baseHeight,
+      depth: customizations.depth || variant.baseDepth,
+      cost: variant.baseCost, 
+      hollow: variant.hollow, 
+      shape: variant.shape,
+      material: customizations.material || 'wood',
+      color: pieceColor,
+      x: 0, y: 0, z: 0, 
+      rotationY: 0,
+      tiltX: customizations.tiltX || 0, 
+      tiltZ: customizations.tiltZ || 0,
+      apexPosition: customizations.apexPosition || 0.5,
+      flipped: customizations.flipped || false,
+      locked: false, 
+      groupId: null,
+      createdAt: new Date().toISOString(),
+      lastModified: new Date().toISOString()
+    };
+  },
+
+  /**
+   * Gets a random color from the palette for new pieces
+   * @returns {number} Random color value from palette
+   */
+  getRandomColor: () => {
+    const palette = SharedUtils.COLORS.PALETTE;
+    const randomIndex = Math.floor(Math.random() * palette.length);
+    const hexColor = palette[randomIndex];
+    // Convert hex string to number (remove # and parse as hex)
+    return parseInt(hexColor.slice(1), 16);
+  },
+
+  /**
+   * Gets the default color for a piece based on its category
+   * @param {string} variantId - Variant ID to determine category
+   * @returns {number} Default color value
+   */
+  getDefaultColor: (variantId) => {
+    for (const [categoryKey, categoryData] of Object.entries(CatTreePieces.categories)) {
+      if (categoryData.variants.some(v => v.id === variantId)) {
+        return SharedUtils.COLORS.PIECE_TYPES[categoryKey] || SharedUtils.COLORS.PIECE_TYPES.platform;
+      }
+    }
+    return SharedUtils.COLORS.PIECE_TYPES.platform;
+  },
+
+  // ========================================
+  // GEOMETRY CREATION SYSTEM - SOLID PIECES
+  // ========================================
+  
+  /**
+   * Creates Three.js geometry for solid (non-hollow) pieces
+   * FIXED: Proper color handling and geometry creation
+   * @param {Object} piece - Piece object with dimensions and shape
+   * @returns {THREE.Mesh|THREE.Group} Three.js mesh or group object
+   */
+  createSolidGeometry: (piece) => {
+    const startTime = DEBUG_PERFORMANCE ? performance.now() : 0;
+    
+    // Use piece's assigned color, or get a random one if somehow missing
+    const color = piece.color !== undefined && piece.color !== null 
+      ? piece.color 
+      : CatTreePieces.getRandomColor();  // Changed from getDefaultColor
+    
+    const SCALE_FACTOR = 0.96; // Slight scaling to prevent z-fighting
+    
+    // Handle flipped platforms
+    let scaledWidth, scaledHeight, scaledDepth;
+    if (piece.flipped && piece.variantId && piece.variantId.startsWith('platform-')) {
+      scaledWidth = piece.height * SCALE_FACTOR;
+      scaledHeight = piece.width * SCALE_FACTOR;
+      scaledDepth = piece.depth * SCALE_FACTOR;
+      console.log(`🔄 Creating flipped platform geometry with original proportions: ${scaledWidth}" × ${scaledHeight}" × ${scaledDepth}"`);
+    } else {
+      scaledWidth = piece.width * SCALE_FACTOR;
+      scaledHeight = piece.height * SCALE_FACTOR;
+      scaledDepth = piece.depth * SCALE_FACTOR;
+    }
+    
+    log(`🔧 Creating solid ${piece.name}: ${piece.width}" x ${piece.height}" x ${piece.depth}" (${piece.shape}) with color 0x${color.toString(16).padStart(6, '0')}`);
+    
+    const material = new THREE.MeshLambertMaterial({ color });
+    let geometry;
+    
+    try {
+      geometry = CatTreePieces._createGeometryForShape(piece.shape, scaledWidth, scaledHeight, scaledDepth, piece);
+      
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData = { isPiece: true, pieceId: piece.id };
+      
+      // Handle platform flipping
+      if (piece.flipped && piece.variantId && piece.variantId.startsWith('platform-')) {
+        console.log(`🔄 Creating flipped platform: ${piece.name}`);
+        
+        const flipGroup = new THREE.Group();
+        mesh.rotation.z = Math.PI / 2;
+        
+        const standingHeight = piece.width * SCALE_FACTOR;
+        mesh.position.y = standingHeight / 2;
+        
+        console.log(`  Positioned flipped platform at y = ${standingHeight / 2} (standing height: ${standingHeight})")`);
+        
+        flipGroup.add(mesh);
+        flipGroup.userData = { isPiece: true, pieceId: piece.id };
+        
+        if (DEBUG_PERFORMANCE) {
+          const endTime = performance.now();
+          console.log(`✅ Created flipped platform ${piece.name} in ${(endTime - startTime).toFixed(2)}ms`);
+        }
+        
+        return flipGroup;
+      }
+      
+      if (DEBUG_PERFORMANCE) {
+        const endTime = performance.now();
+        console.log(`✅ Created solid ${piece.name} in ${(endTime - startTime).toFixed(2)}ms`);
+      }
+      
+      return mesh;
+      
+    } catch (error) {
+      console.error(`❌ Error creating geometry for ${piece.name}:`, error);
+      // Fallback to basic box geometry
+      geometry = new THREE.BoxGeometry(scaledWidth, scaledHeight, scaledDepth);
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData = { isPiece: true, pieceId: piece.id };
+      return mesh;
+    }
+  },
+
+  /**
+   * Creates geometry based on shape type with proper parameters
+   * @param {string} shape - Shape identifier
+   * @param {number} width - Scaled width
+   * @param {number} height - Scaled height  
+   * @param {number} depth - Scaled depth
+   * @param {Object} piece - Original piece object for additional parameters
+   * @returns {THREE.Geometry} Three.js geometry object
+   */
+  _createGeometryForShape: (shape, width, height, depth, piece) => {
+    switch (shape) {
+      case 'cylinder':
+        return new THREE.CylinderGeometry(width/2, width/2, height, 16);
+        
+      case 'tapered':
+        return new THREE.CylinderGeometry(width/4, width/2, height, 16);
+        
+      case 'cushion':
+        const sphereGeom = new THREE.SphereGeometry(width/2, 16, 8);
+        sphereGeom.scale(1, height/width, depth/width);
+        return sphereGeom;
+        
+      case 'raised-edge-square':
+        // Create base geometry (1 inch thick)
+        const baseHeight = 1;
+        const cushionHeight = 1;
+        const totalHeight = baseHeight + cushionHeight;
+        
+        // Create a flat square bed with raised edges
+        const squareGeom = new THREE.BoxGeometry(width, totalHeight, depth, 32, 16, 32);
+        const squarePositions = squareGeom.attributes.position;
+        
+        const borderWidth = Math.min(width, depth) * 0.2; // Border width 20% of smallest dimension
+        
+        // Modify vertices for plush border
+        for (let i = 0; i < squarePositions.count; i++) {
+          const x = squarePositions.getX(i);
+          const y = squarePositions.getY(i);
+          const z = squarePositions.getZ(i);
+          
+          // Calculate distance from edges
+          const xDist = Math.abs(Math.abs(x) - width/2);
+          const zDist = Math.abs(Math.abs(z) - depth/2);
+          const edgeDist = Math.min(xDist, zDist);
+          
+          // If vertex is above the base height
+          if (y > 0) {
+            // For the cushioned border
+            if (edgeDist < borderWidth) {
+              // Create plush rounded effect
+              const t = edgeDist / borderWidth;
+              const cushionCurve = Math.cos(t * Math.PI * 0.5);
+              const heightOffset = cushionCurve * cushionHeight;
+              
+              // Add some random variation for a more plush look
+              const variation = Math.sin(x * 10) * Math.cos(z * 10) * 0.1;
+              
+              // Set new position
+              squarePositions.setY(i, baseHeight + heightOffset + variation);
+              
+              // Round the outer edges
+              const pushIn = (1 - t) * 0.2;
+              if (xDist < borderWidth * 0.5) {
+                const xPush = Math.sign(x) * pushIn;
+                squarePositions.setX(i, x - xPush);
+              }
+              if (zDist < borderWidth * 0.5) {
+                const zPush = Math.sign(z) * pushIn;
+                squarePositions.setZ(i, z - zPush);
+              }
+            } else {
+              // Flat center area
+              squarePositions.setY(i, baseHeight);
+            }
+          }
+        }
+        squareGeom.computeVertexNormals();
+        squareGeom.translate(0, totalHeight * 0.5, 0);
+        return squareGeom;
+        
+      case 'raised-edge-round':
+        // Create base geometry (1 inch thick)
+        const roundBaseHeight = 1;
+        const roundCushionHeight = 1;
+        const roundTotalHeight = roundBaseHeight + roundCushionHeight;
+        
+        // Create round bed
+        const segments = 64;
+        const radialSegments = 16;
+        const baseRadius = width/2;
+        const roundGeom = new THREE.CylinderGeometry(baseRadius, baseRadius, roundTotalHeight, segments, radialSegments, false);
+        const roundPositions = roundGeom.attributes.position;
+        
+        // Modify vertices for plush border
+        for (let i = 0; i < roundPositions.count; i++) {
+          const x = roundPositions.getX(i);
+          const y = roundPositions.getY(i);
+          const z = roundPositions.getZ(i);
+          
+          // Calculate distance from edge
+          const distanceFromCenter = Math.sqrt(x * x + z * z);
+          const distanceFromEdge = baseRadius - distanceFromCenter;
+          const borderThickness = baseRadius * 0.2; // Border 20% of radius
+          
+          // If vertex is above the base height
+          if (y > 0) {
+            // For the cushioned border
+            if (distanceFromEdge < borderThickness) {
+              // Create plush rounded effect
+              const t = distanceFromEdge / borderThickness;
+              const cushionCurve = Math.cos(t * Math.PI * 0.5);
+              const heightOffset = cushionCurve * roundCushionHeight;
+              
+              // Add some random variation for a more plush look
+              const angle = Math.atan2(z, x);
+              const variation = Math.sin(angle * 16) * 0.1;
+              
+              // Set new position
+              roundPositions.setY(i, roundBaseHeight + heightOffset + variation);
+              
+              // Round the outer edge
+              if (distanceFromEdge < borderThickness * 0.5) {
+                const pushIn = (1 - t) * 0.15;
+                const scale = 1 - pushIn;
+                roundPositions.setX(i, x * scale);
+                roundPositions.setZ(i, z * scale);
+              }
+            } else {
+              // Flat center area
+              roundPositions.setY(i, roundBaseHeight);
+            }
+          }
+        }
+        roundGeom.computeVertexNormals();
+        roundGeom.translate(0, roundTotalHeight * 0.5, 0);
+        return roundGeom;
+        
+      case 'panel':
+      case 'wide-panel':
+        return new THREE.BoxGeometry(width, height, depth);
+        
+      case 'triangle-panel':
+        const apexPosition = piece.apexPosition || 0.5;
+        const triangleShape = new THREE.Shape();
+        const apexX = (apexPosition - 0.5) * width;
+        triangleShape.moveTo(-width/2, -height/2);
+        triangleShape.lineTo(width/2, -height/2);
+        triangleShape.lineTo(apexX, height/2);
+        triangleShape.lineTo(-width/2, -height/2);
+        const extrudeGeom = new THREE.ExtrudeGeometry(triangleShape, { depth, bevelEnabled: false });
+        extrudeGeom.translate(0, 0, -depth/2);
+        return extrudeGeom;
+        
+      case 'rock-wall-panel':
+        const rockGeom = new THREE.BoxGeometry(width, height, depth);
+        return rockGeom;
+        
+      case 'honeycomb-panel':
+        return new THREE.BoxGeometry(width, height, depth);
+        
+      case 'lshaped':
+        return CatTreePieces._createLShapedGeometry(width, height, depth);
+        
+      case 'quarter-circle':
+        return CatTreePieces._createQuarterCircleGeometry(width, height, depth);
+        
+      case 'semicircle':
+        return CatTreePieces._createSemicircleGeometry(width, height, depth);
+        
+      case 'triangle':
+        return CatTreePieces._createTriangleGeometry(width, height, depth);
+        
+      case 'hexagon':
+        return CatTreePieces._createHexagonGeometry(width, height, depth);
+        
+      case 'oval':
+        return CatTreePieces._createOvalGeometry(width, height, depth);
+        
+      default:
+        return new THREE.BoxGeometry(width, height, depth);
+    }
+  },
+
+  /**
+ * Creates L-shaped perch geometry (HORIZONTAL)
+ */
+  _createLShapedGeometry: (width, height, depth) => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-width/2, -depth/2);
+    shape.lineTo(0, -depth/2);
+    shape.lineTo(0, 0);
+    shape.lineTo(width/2, 0);
+    shape.lineTo(width/2, depth/2);
+    shape.lineTo(-width/2, depth/2);
+    shape.lineTo(-width/2, -depth/2);
+  
+  // Extrude along Z axis first (creates it vertically)
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+  
+  // Rotate to make horizontal (90 degrees around X axis)
+  geometry.rotateX(-Math.PI / 2);
+  // Center it properly
+  geometry.translate(0, height/2, 0);
+  
+  return geometry;
+},
+
+  /**
+   * Creates quarter-circle platform geometry (HORIZONTAL)
+   */
+  _createQuarterCircleGeometry: (width, height, depth) => {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.lineTo(width/2, 0);
+    shape.absarc(0, 0, width/2, 0, Math.PI/2, false);
+    shape.lineTo(0, 0);
+    
+    // Extrude along Z axis first
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+    
+    // Rotate to make horizontal (shape flat on XZ plane, height going up Y)
+    geometry.rotateX(-Math.PI / 2);
+    // Center it properly
+    geometry.translate(0, height/2, 0);
+    
+    return geometry;
+  },
+
+  /**
+   * Creates semicircle platform geometry (HORIZONTAL)
+   */
+  _createSemicircleGeometry: (width, height, depth) => {
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, width/2, 0, Math.PI, false);
+    shape.lineTo(-width/2, 0);
+    
+    // Extrude along Z axis first
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+    
+    // Rotate to make horizontal
+    geometry.rotateX(-Math.PI / 2);
+    // Center it properly - semicircle needs Z adjustment too
+    geometry.translate(0, height/2, -depth/2);
+    
+    return geometry;
+  },
+
+  /**
+   * Creates triangle platform geometry (HORIZONTAL)
+   */
+  _createTriangleGeometry: (width, height, depth) => {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, depth/2);
+    shape.lineTo(-width/2, -depth/2);
+    shape.lineTo(width/2, -depth/2);
+    shape.lineTo(0, depth/2);
+    
+    // Extrude along Z axis first
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+    
+    // Rotate to make horizontal
+    geometry.rotateX(-Math.PI / 2);
+    // Center it properly
+    geometry.translate(0, height/2, 0);
+    
+    return geometry;
+  },
+
+  /**
+   * Creates hexagon platform geometry (HORIZONTAL)
+   */
+  _createHexagonGeometry: (width, height, depth) => {
+    const shape = new THREE.Shape();
+    const radius = width/2;
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      const x = radius * Math.cos(angle);
+      const y = radius * Math.sin(angle);
+      if (i === 0) shape.moveTo(x, y);
+      else shape.lineTo(x, y);
+    }
+    shape.lineTo(radius, 0);
+    
+    // Extrude along Z axis first
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+    
+    // Rotate to make horizontal
+    geometry.rotateX(-Math.PI / 2);
+    // Center it properly
+    geometry.translate(0, height/2, 0);
+    
+    return geometry;
+  },
+
+  /**
+   * Creates oval platform geometry (HORIZONTAL)
+   */
+  _createOvalGeometry: (width, height, depth) => {
+    const shape = new THREE.Shape();
+    shape.absellipse(0, 0, width/2, depth/2, 0, Math.PI * 2, false, 0);
+    
+    // Extrude along Z axis first (creates it vertically)
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+    
+    // Rotate to make horizontal (90 degrees around X axis)
+    geometry.rotateX(-Math.PI / 2);
+    // Center it properly
+    geometry.translate(0, height/2, 0);
+    
+    return geometry;
+  },
+
+  /**
+   * Creates a square cushion with raised plush border
+   * @param {number} width - Total width of the bed
+   * @param {number} height - Total height including border
+   * @param {number} depth - Total depth of the bed
+   * @returns {THREE.Group} Group containing base and border meshes
+   */
+  _createRaisedEdgeSquareGeometry: (width, height, depth) => {
+    const baseHeight = height * 0.4;
+    const borderHeight = height - baseHeight;
+    const borderWidth = 2;
+    
+    // Create the base cushion
+    const baseGeometry = new THREE.BoxGeometry(
+      width - borderWidth * 2,
+      baseHeight,
+      depth - borderWidth * 2
+    );
+    
+    // Create the border (4 separate pieces to avoid geometry issues)
+    const borderLengthX = width;
+    const borderLengthZ = depth - borderWidth * 2;
+    
+    const sideBorderGeom = new THREE.BoxGeometry(borderWidth, borderHeight, borderLengthZ);
+    const frontBorderGeom = new THREE.BoxGeometry(borderLengthX, borderHeight, borderWidth);
+    
+    // Create a group to hold all pieces
+    const group = new THREE.Group();
+    
+    // Add base cushion
+    const baseMesh = new THREE.Mesh(baseGeometry);
+    baseMesh.position.y = baseHeight / 2;
+    group.add(baseMesh);
+    
+    // Add border pieces
+    const leftBorder = new THREE.Mesh(sideBorderGeom);
+    leftBorder.position.set(-width/2 + borderWidth/2, baseHeight + borderHeight/2, 0);
+    group.add(leftBorder);
+    
+    const rightBorder = new THREE.Mesh(sideBorderGeom);
+    rightBorder.position.set(width/2 - borderWidth/2, baseHeight + borderHeight/2, 0);
+    group.add(rightBorder);
+    
+    const frontBorder = new THREE.Mesh(frontBorderGeom);
+    frontBorder.position.set(0, baseHeight + borderHeight/2, -depth/2 + borderWidth/2);
+    group.add(frontBorder);
+    
+    const backBorder = new THREE.Mesh(frontBorderGeom);
+    backBorder.position.set(0, baseHeight + borderHeight/2, depth/2 - borderWidth/2);
+    group.add(backBorder);
+    
+    return group;
+  },
+
+  /**
+   * Creates a round cushion with raised plush border
+   * @param {number} width - Diameter of the bed
+   * @param {number} height - Total height including border
+   * @param {number} depth - Should equal width for circular bed
+   * @returns {THREE.Group} Group containing base and border meshes
+   */
+  _createRaisedEdgeRoundGeometry: (width, height, depth) => {
+    const baseHeight = height * 0.4;
+    const borderHeight = height - baseHeight;
+    const borderWidth = 2;
+    const radius = width/2;
+    
+    // Create base cushion
+    const baseGeometry = new THREE.CylinderGeometry(
+      radius - borderWidth,
+      radius - borderWidth,
+      baseHeight,
+      32
+    );
+    
+    // Create border wall
+    const borderWallGeometry = new THREE.CylinderGeometry(
+      radius,
+      radius,
+      borderHeight,
+      32,
+      1,
+      true
+    );
+    
+    // Create a group to hold all pieces
+    const group = new THREE.Group();
+    
+    // Add base cushion
+    const baseMesh = new THREE.Mesh(baseGeometry);
+    baseMesh.position.y = baseHeight / 2;
+    group.add(baseMesh);
+    
+    // Add border wall
+    const borderMesh = new THREE.Mesh(borderWallGeometry);
+    borderMesh.position.y = baseHeight + borderHeight/2;
+    group.add(borderMesh);
+    
+    return group;
+  },
+
+  // ========================================
+  // HOLLOW GEOMETRY CREATION SYSTEM
+  // ========================================
+  
+  /**
+   * Creates Three.js geometry for hollow pieces with wall structure
+   * @param {Object} piece - Piece object with dimensions and shape
+   * @returns {THREE.Group} Three.js group containing wall meshes
+   */
+  createHollowGeometry: (piece) => {
+    const startTime = DEBUG_PERFORMANCE ? performance.now() : 0;
+    log(`🏠 Creating hollow ${piece.name}...`);
+    
+    let result;
+    switch (piece.shape) {
+      case 'aframe':
+        result = CatTreePieces._createHollowAFrame(piece);
+        break;
+      case 'cylinder':
+        result = CatTreePieces._createHollowCylinder(piece);
+        break;
+      case 'tunnel':
+        result = CatTreePieces._createHollowTunnel(piece);
+        break;
+      case 'tube-tunnel':
+        result = CatTreePieces._createTubeTunnel(piece);
+        break;
+      case 'tunnel-curve90':
+        result = CatTreePieces._createCurved90Tunnel(piece);
+        break;
+      case 'tunnel-ramp':
+        result = CatTreePieces._createRampTunnel(piece);
+        break;
+      default:
+        result = CatTreePieces._createHollowBox(piece);
+    }
+    
+    if (DEBUG_PERFORMANCE) {
+      const endTime = performance.now();
+      console.log(`✅ Created hollow ${piece.name} in ${(endTime - startTime).toFixed(2)}ms`);
+    }
+    
+    return result;
+  },
+
+  /**
+   * Creates a hollow box structure with individual wall meshes
+   * @param {Object} piece - Piece object
+   * @returns {THREE.Group} Group containing wall meshes
+   */
+  _createHollowBox: (piece) => {
+    const group = new THREE.Group();
+    const wallThickness = 0.75;
+    
+    // Use piece's assigned color, or get a random one if somehow missing
+    const color = piece.color !== undefined && piece.color !== null 
+      ? piece.color 
+      : CatTreePieces.getRandomColor();
+    
+    const material = new THREE.MeshLambertMaterial({ color });
+    
+    const SCALE_FACTOR = 0.96;
+    const [scaledWidth, scaledHeight, scaledDepth, scaledWallThickness] = [
+      piece.width * SCALE_FACTOR,
+      piece.height * SCALE_FACTOR,
+      piece.depth * SCALE_FACTOR,
+      wallThickness * SCALE_FACTOR
+    ];
+    
+    // Wall configuration
+    const wallConfigs = [
+      { pos: [0, 0, -scaledDepth/2 + scaledWallThickness/2], size: [scaledWidth, scaledHeight, scaledWallThickness], name: 'front' },
+      { pos: [0, 0, scaledDepth/2 - scaledWallThickness/2], size: [scaledWidth, scaledHeight, scaledWallThickness], name: 'back' },
+      { pos: [-scaledWidth/2 + scaledWallThickness/2, 0, 0], size: [scaledWallThickness, scaledHeight, scaledDepth - scaledWallThickness], name: 'left' },
+      { pos: [scaledWidth/2 - scaledWallThickness/2, 0, 0], size: [scaledWallThickness, scaledHeight, scaledDepth - scaledWallThickness], name: 'right' },
+      { pos: [0, scaledHeight/2 - scaledWallThickness/2, 0], size: [scaledWidth, scaledWallThickness, scaledDepth], name: 'top' },
+      { pos: [0, -scaledHeight/2 + scaledWallThickness/2, 0], size: [scaledWidth, scaledWallThickness, scaledDepth], name: 'bottom' }
+    ];
+
+    wallConfigs.forEach(({ pos, size, name }) => {
+      const geometry = new THREE.BoxGeometry(...size);
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(...pos);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData = { 
+        isPiece: true, 
+        pieceId: piece.id, 
+        wallName: name 
+      };
+      group.add(mesh);
+    });
+
+    group.userData = { isPiece: true, pieceId: piece.id };
+    return group;
+  },
+
+  /**
+   * Creates a hollow A-frame structure
+   * @param {Object} piece - Piece object
+   * @returns {THREE.Group} Group containing wall meshes
+   */
+  _createHollowAFrame: (piece) => {
+    const group = new THREE.Group();
+    const wallThickness = 0.75;
+    
+    // FIXED: Check for undefined/null specifically, not falsy values
+    const color = piece.color !== undefined && piece.color !== null 
+      ? piece.color 
+      : CatTreePieces.getDefaultColor(piece.variantId);
+    
+    const material = new THREE.MeshLambertMaterial({ color });
+    
+    const SCALE_FACTOR = 0.96;
+    const [scaledWidth, scaledHeight, scaledDepth, scaledWallThickness] = [
+      piece.width * SCALE_FACTOR,
+      piece.height * SCALE_FACTOR,
+      piece.depth * SCALE_FACTOR,
+      wallThickness * SCALE_FACTOR
+    ];
+    
+    // Create triangular front and back walls
+    const triangleShape = new THREE.Shape();
+    triangleShape.moveTo(-scaledWidth/2, -scaledHeight/2);
+    triangleShape.lineTo(scaledWidth/2, -scaledHeight/2);
+    triangleShape.lineTo(0, scaledHeight/2);
+    triangleShape.lineTo(-scaledWidth/2, -scaledHeight/2);
+    
+    // Front wall
+    const frontGeom = new THREE.ExtrudeGeometry(triangleShape, { 
+      depth: scaledWallThickness, 
+      bevelEnabled: false 
+    });
+    const frontMesh = new THREE.Mesh(frontGeom, material);
+    frontMesh.position.z = -scaledDepth/2;
+    frontMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'front' };
+    group.add(frontMesh);
+    
+    // Back wall
+    const backMesh = new THREE.Mesh(frontGeom.clone(), material);
+    backMesh.position.z = scaledDepth/2 - scaledWallThickness;
+    backMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'back' };
+    group.add(backMesh);
+    
+    // Floor
+    const floorGeom = new THREE.BoxGeometry(scaledWidth, scaledWallThickness, scaledDepth);
+    const floorMesh = new THREE.Mesh(floorGeom, material);
+    floorMesh.position.y = -scaledHeight/2 + scaledWallThickness/2;
+    floorMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'bottom' };
+    group.add(floorMesh);
+    
+    // Sloped left roof
+    const roofLength = Math.sqrt((scaledWidth/2) * (scaledWidth/2) + scaledHeight * scaledHeight);
+    const leftRoofGeom = new THREE.BoxGeometry(roofLength, scaledWallThickness, scaledDepth);
+    const leftRoofMesh = new THREE.Mesh(leftRoofGeom, material);
+    const angle = Math.atan2(scaledHeight, scaledWidth/2);
+    leftRoofMesh.rotation.z = angle;
+    leftRoofMesh.position.set(-scaledWidth/4, 0, 0);
+    leftRoofMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'left' };
+    group.add(leftRoofMesh);
+    
+    // Sloped right roof
+    const rightRoofMesh = new THREE.Mesh(leftRoofGeom.clone(), material);
+    rightRoofMesh.rotation.z = -angle;
+    rightRoofMesh.position.set(scaledWidth/4, 0, 0);
+    rightRoofMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'right' };
+    group.add(rightRoofMesh);
+    
+    group.userData = { isPiece: true, pieceId: piece.id };
+    return group;
+  },
+
+  /**
+   * Creates a hollow cylinder structure
+   * @param {Object} piece - Piece object
+   * @returns {THREE.Group} Group containing wall meshes
+   */
+  _createHollowCylinder: (piece) => {
+    const group = new THREE.Group();
+    const wallThickness = 0.75;
+    
+    // FIXED: Check for undefined/null specifically, not falsy values
+    const color = piece.color !== undefined && piece.color !== null 
+      ? piece.color 
+      : CatTreePieces.getDefaultColor(piece.variantId);
+    
+    const material = new THREE.MeshLambertMaterial({ color });
+    
+    const SCALE_FACTOR = 0.96;
+    const scaledRadius = (piece.width * SCALE_FACTOR) / 2;
+    const scaledHeight = piece.height * SCALE_FACTOR;
+    const scaledWallThickness = wallThickness * SCALE_FACTOR;
+    
+    // Create walls using a hollow cylinder approach
+    const innerRadius = scaledRadius - scaledWallThickness;
+    
+    const wallGeom = new THREE.CylinderGeometry(
+      scaledRadius, 
+      scaledRadius, 
+      scaledHeight, 
+      16, 
+      1, 
+      true
+    );
+    const wallMesh = new THREE.Mesh(wallGeom, material);
+    wallMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'wall' };
+    group.add(wallMesh);
+    
+    // Top cap
+    const topGeom = new THREE.RingGeometry(innerRadius, scaledRadius, 16);
+    const topMesh = new THREE.Mesh(topGeom, material);
+    topMesh.rotation.x = -Math.PI / 2;
+    topMesh.position.y = scaledHeight / 2;
+    topMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'top' };
+    group.add(topMesh);
+    
+    // Bottom cap
+    const bottomMesh = new THREE.Mesh(topGeom.clone(), material);
+    bottomMesh.rotation.x = Math.PI / 2;
+    bottomMesh.position.y = -scaledHeight / 2;
+    bottomMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'bottom' };
+    group.add(bottomMesh);
+    
+    group.userData = { isPiece: true, pieceId: piece.id };
+    return group;
+  },
+
+  /**
+   * Creates a hollow rectangular tunnel
+   * @param {Object} piece - Piece object
+   * @returns {THREE.Group} Group containing wall meshes
+   */
+  _createHollowTunnel: (piece) => {
+    const group = new THREE.Group();
+    const wallThickness = 0.75;
+    
+    // FIXED: Check for undefined/null specifically, not falsy values
+    const color = piece.color !== undefined && piece.color !== null 
+      ? piece.color 
+      : CatTreePieces.getDefaultColor(piece.variantId);
+    
+    const material = new THREE.MeshLambertMaterial({ color });
+    
+    const SCALE_FACTOR = 0.96;
+    const [scaledWidth, scaledHeight, scaledDepth, scaledWallThickness] = [
+      piece.width * SCALE_FACTOR,
+      piece.height * SCALE_FACTOR,
+      piece.depth * SCALE_FACTOR,
+      wallThickness * SCALE_FACTOR
+    ];
+    
+    // Top wall
+    const topGeom = new THREE.BoxGeometry(scaledWidth, scaledWallThickness, scaledDepth);
+    const topMesh = new THREE.Mesh(topGeom, material);
+    topMesh.position.y = scaledHeight/2 - scaledWallThickness/2;
+    topMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'top' };
+    group.add(topMesh);
+    
+    // Bottom wall
+    const bottomMesh = new THREE.Mesh(topGeom.clone(), material);
+    bottomMesh.position.y = -scaledHeight/2 + scaledWallThickness/2;
+    bottomMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'bottom' };
+    group.add(bottomMesh);
+    
+    // Left wall
+    const sideGeom = new THREE.BoxGeometry(scaledWidth, scaledHeight - 2*scaledWallThickness, scaledWallThickness);
+    const leftMesh = new THREE.Mesh(sideGeom, material);
+    leftMesh.position.z = -scaledDepth/2 + scaledWallThickness/2;
+    leftMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'left' };
+    group.add(leftMesh);
+    
+    // Right wall
+    const rightMesh = new THREE.Mesh(sideGeom.clone(), material);
+    rightMesh.position.z = scaledDepth/2 - scaledWallThickness/2;
+    rightMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'right' };
+    group.add(rightMesh);
+    
+    group.userData = { isPiece: true, pieceId: piece.id };
+    return group;
+  },
+
+  /**
+   * Creates a cylindrical tube tunnel
+   * @param {Object} piece - Piece object
+   * @returns {THREE.Group} Group containing wall meshes
+   */
+  _createTubeTunnel: (piece) => {
+    const group = new THREE.Group();
+    const wallThickness = 1.25;
+    
+    // FIXED: Check for undefined/null specifically, not falsy values
+    const color = piece.color !== undefined && piece.color !== null 
+      ? piece.color 
+      : CatTreePieces.getDefaultColor(piece.variantId);
+    
+    const material = new THREE.MeshLambertMaterial({ color });
+    
+    const SCALE_FACTOR = 0.96;
+    const scaledLength = piece.width * SCALE_FACTOR;
+    const scaledOuterRadius = (piece.height * SCALE_FACTOR) / 2;
+    const scaledInnerRadius = scaledOuterRadius - wallThickness;
+    
+    // Create outer cylinder
+    const outerGeom = new THREE.CylinderGeometry(
+      scaledOuterRadius, 
+      scaledOuterRadius, 
+      scaledLength, 
+      16, 
+      1, 
+      false // Closed ends
+    );
+    
+    // Create inner cylinder (hollow space)
+    const innerGeom = new THREE.CylinderGeometry(
+      scaledInnerRadius, 
+      scaledInnerRadius, 
+      scaledLength + 0.1, // Slightly longer to ensure clean subtraction
+      16, 
+      1, 
+      false
+    );
+    
+    // Create the hollow tube using CSG-like approach with separate geometries
+    const tubeGroup = new THREE.Group();
+    
+    // Create true hollow cylinder - thick wall structure
+    // Use THREE.LatheGeometry to create a proper hollow tube
+    const points = [];
+    // Outer wall
+    points.push(new THREE.Vector2(scaledOuterRadius, -scaledLength/2));
+    points.push(new THREE.Vector2(scaledOuterRadius, scaledLength/2));
+    // Inner wall (going back down)
+    points.push(new THREE.Vector2(scaledInnerRadius, scaledLength/2));
+    points.push(new THREE.Vector2(scaledInnerRadius, -scaledLength/2));
+    // Close the shape
+    points.push(new THREE.Vector2(scaledOuterRadius, -scaledLength/2));
+    
+    const tubeGeometry = new THREE.LatheGeometry(points, 16);
+    const tubeMesh = new THREE.Mesh(tubeGeometry, material);
+    tubeMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'tube' };
+    tubeGroup.add(tubeMesh);
+    
+    // No end caps needed - the LatheGeometry creates the complete hollow tube structure
+    
+    // Rotate to horizontal
+    tubeGroup.rotation.z = Math.PI / 2;
+    group.add(tubeGroup);
+    
+    group.userData = { isPiece: true, pieceId: piece.id };
+    return group;
+  },
+
+  /**
+   * Creates a 90-degree curved tunnel
+   * @param {Object} piece - Piece object
+   * @returns {THREE.Group} Group containing wall meshes
+   */
+  _createCurved90Tunnel: (piece) => {
+    const group = new THREE.Group();
+    const wallThickness = 1.25; // Match the tube tunnel thickness
+    
+    // FIXED: Check for undefined/null specifically, not falsy values
+    const color = piece.color !== undefined && piece.color !== null 
+      ? piece.color 
+      : CatTreePieces.getDefaultColor(piece.variantId);
+    
+    const material = new THREE.MeshLambertMaterial({ color });
+    
+    const SCALE_FACTOR = 0.96;
+    const scaledWidth = piece.width * SCALE_FACTOR;
+    const scaledHeight = piece.height * SCALE_FACTOR;
+    const scaledDepth = piece.depth * SCALE_FACTOR;
+    
+    const curveGroup = new THREE.Group();
+    
+    // Calculate dimensions for the curved tunnel
+    const bendRadius = Math.min(scaledWidth, scaledDepth) / 4; // Radius of the bend
+    const tubeOuterRadius = scaledHeight / 2;
+    const tubeInnerRadius = tubeOuterRadius - wallThickness;
+    
+    // Create a simple 90-degree curved path
+    const curvePoints = [];
+    const segments = 20;
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const angle = t * Math.PI / 2; // 90 degrees
+      const x = -bendRadius * Math.cos(angle);
+      const z = -bendRadius * Math.sin(angle);
+      curvePoints.push(new THREE.Vector3(x, 0, z));
+    }
+    const curve = new THREE.CatmullRomCurve3(curvePoints);
+    
+    // Create just the outer tube - no inner tube for true hollow effect
+    const tubeGeom = new THREE.TubeGeometry(curve, segments, tubeOuterRadius, 16, false);
+    
+    // Create a proper hollow tube by making the geometry have thickness
+    const hollowTubeGeom = new THREE.TubeGeometry(curve, segments, tubeOuterRadius, 16, false);
+    const innerTubeGeom = new THREE.TubeGeometry(curve, segments, tubeInnerRadius, 16, false);
+    
+    // Use the outer tube only for now (simpler approach)
+    const tubeMesh = new THREE.Mesh(tubeGeom, material);
+    tubeMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'tube' };
+    curveGroup.add(tubeMesh);
+    
+    // Add end openings at the correct positions and orientations
+    const endCapGeometry = new THREE.RingGeometry(tubeInnerRadius, tubeOuterRadius, 16);
+    
+    // Start opening (faces negative X direction)
+    const startCap = new THREE.Mesh(endCapGeometry, material);
+    startCap.position.set(-bendRadius, 0, 0);
+    startCap.rotation.y = Math.PI / 2; // Face outward from the curve
+    startCap.userData = { isPiece: true, pieceId: piece.id, wallName: 'startCap' };
+    curveGroup.add(startCap);
+    
+    // End opening (faces negative Z direction)
+    const endCap = new THREE.Mesh(endCapGeometry, material);
+    endCap.position.set(0, 0, -bendRadius);
+    endCap.rotation.x = -Math.PI / 2; // Face outward from the curve
+    endCap.userData = { isPiece: true, pieceId: piece.id, wallName: 'endCap' };
+    curveGroup.add(endCap);
+    
+    group.add(curveGroup);
+    group.userData = { isPiece: true, pieceId: piece.id };
+    return group;
+  },
+
+  /**
+   * Creates a ramp tunnel (angled tunnel)
+   * @param {Object} piece - Piece object
+   * @returns {THREE.Group} Group containing wall meshes
+   */
+  _createRampTunnel: (piece) => {
+    const group = new THREE.Group();
+    const wallThickness = 0.75;
+    
+    // FIXED: Check for undefined/null specifically, not falsy values
+    const color = piece.color !== undefined && piece.color !== null 
+      ? piece.color 
+      : CatTreePieces.getDefaultColor(piece.variantId);
+    
+    const material = new THREE.MeshLambertMaterial({ color });
+    
+    const SCALE_FACTOR = 0.96;
+    const [scaledWidth, scaledHeight, scaledDepth, scaledWallThickness] = [
+      piece.width * SCALE_FACTOR,
+      piece.height * SCALE_FACTOR,
+      piece.depth * SCALE_FACTOR,
+      wallThickness * SCALE_FACTOR
+    ];
+    
+    const tunnelGroup = new THREE.Group();
+    
+    // Top wall
+    const topGeom = new THREE.BoxGeometry(scaledWidth, scaledWallThickness, scaledDepth);
+    const topMesh = new THREE.Mesh(topGeom, material);
+    topMesh.position.y = scaledHeight/2 - scaledWallThickness/2;
+    topMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'top' };
+    tunnelGroup.add(topMesh);
+    
+    // Bottom wall
+    const bottomMesh = new THREE.Mesh(topGeom.clone(), material);
+    bottomMesh.position.y = -scaledHeight/2 + scaledWallThickness/2;
+    bottomMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'bottom' };
+    tunnelGroup.add(bottomMesh);
+    
+    // Left wall
+    const sideGeom = new THREE.BoxGeometry(scaledWidth, scaledHeight - 2*scaledWallThickness, scaledWallThickness);
+    const leftMesh = new THREE.Mesh(sideGeom, material);
+    leftMesh.position.z = -scaledDepth/2 + scaledWallThickness/2;
+    leftMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'left' };
+    tunnelGroup.add(leftMesh);
+    
+    // Right wall
+    const rightMesh = new THREE.Mesh(sideGeom.clone(), material);
+    rightMesh.position.z = scaledDepth/2 - scaledWallThickness/2;
+    rightMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'right' };
+    tunnelGroup.add(rightMesh);
+    
+    // Angle the entire tunnel upward at 30 degrees
+    tunnelGroup.rotation.z = Math.PI / 6;
+    
+    group.add(tunnelGroup);
+    group.userData = { isPiece: true, pieceId: piece.id };
+    return group;
+  },
+
+  // ========================================
+  // OPENING MARKER CREATION SYSTEM
+  // ========================================
+  
+  /**
+   * Creates visual markers for openings on hollow pieces
+   * @param {Object} opening - Opening definition
+   * @param {Object} parentPiece - Parent piece the opening is on
+   * @returns {THREE.Group} Three.js group containing opening marker
+   */
+  createOpeningMarker: (opening, parentPiece) => {
+    const group = new THREE.Group();
+    const face = opening.face || 'front';
+    
+    const SCALE_FACTOR = 0.96;
+    const [parentHalfWidth, parentHalfHeight, parentHalfDepth] = [
+      (parentPiece.width * SCALE_FACTOR) / 2,
+      (parentPiece.height * SCALE_FACTOR) / 2,
+      (parentPiece.depth * SCALE_FACTOR) / 2
+    ];
+    
+    // Face position and rotation calculations
+    const positions = {
+      front: { pos: [opening.offsetX || 0, opening.offsetY || 0, parentHalfDepth + 0.1], rot: [0, 0, 0] },
+      back: { pos: [opening.offsetX || 0, opening.offsetY || 0, -parentHalfDepth - 0.1], rot: [0, Math.PI, 0] },
+      left: { pos: [-parentHalfWidth - 0.1, opening.offsetY || 0, opening.offsetZ || 0], rot: [0, Math.PI/2, 0] },
+      right: { pos: [parentHalfWidth + 0.1, opening.offsetY || 0, opening.offsetZ || 0], rot: [0, -Math.PI/2, 0] },
+      top: { pos: [opening.offsetX || 0, parentHalfHeight + 0.1, opening.offsetZ || 0], rot: [-Math.PI/2, 0, 0] },
+      bottom: { pos: [opening.offsetX || 0, -parentHalfHeight - 0.1, opening.offsetZ || 0], rot: [Math.PI/2, 0, 0] }
+    };
+    
+    const { pos, rot } = positions[face];
+    
+    // Create marker geometry based on opening shape
+    let geometry;
+    switch (opening.shape) {
+      case 'circle':
+        geometry = new THREE.RingGeometry(opening.width/2 - 0.2, opening.width/2, 16);
+        break;
+      case 'arch':
+        const archShape = new THREE.Shape();
+        archShape.absarc(0, 0, opening.width/2, 0, Math.PI, false);
+        archShape.lineTo(-opening.width/2, -opening.height/2);
+        archShape.lineTo(opening.width/2, -opening.height/2);
+        geometry = new THREE.ShapeGeometry(archShape);
+        break;
+      default:
+        geometry = new THREE.PlaneGeometry(opening.width, opening.height);
+    }
+    
+    const material = new THREE.MeshBasicMaterial({ 
+      color: 0x00aa00, 
+      side: THREE.DoubleSide, 
+      transparent: true, 
+      opacity: 0.9 
+    });
+    
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(...pos);
+    mesh.rotation.set(...rot);
+    mesh.userData = { 
+      isOpening: true, 
+      openingId: opening.id, 
+      parentPieceId: parentPiece.id 
+    };
+    
+    group.add(mesh);
+    group.userData = { 
+      isOpening: true, 
+      openingId: opening.id, 
+      parentPieceId: parentPiece.id 
+    };
+    
+    return group;
+  },
+
+  // ========================================
+  // VISUAL ENHANCEMENT SYSTEM
+  // ========================================
+  
+  /**
+   * Applies selection highlighting to piece meshes
+   * @param {THREE.Mesh|THREE.Group} mesh - Mesh or group to highlight
+   * @param {boolean} isSelected - Whether piece is selected
+   * @param {boolean} isLocked - Whether piece is locked
+   * @param {Object} piece - Piece object for color reference
+   */
+  applySelectionHighlight: (mesh, isSelected, isLocked, piece) => {
+    if (!mesh) return;
+    
+    // Determine target color based on state
+    let targetColor;
+    if (isSelected) {
+      targetColor = SharedUtils.COLORS.SELECTION;
+    } else if (isLocked) {
+      targetColor = SharedUtils.COLORS.LOCKED;
+    } else if (piece && piece.color !== undefined && piece.color !== null) {
+      targetColor = piece.color;
+    } else {
+      // This should rarely happen since pieces should have colors assigned
+      targetColor = CatTreePieces.getRandomColor();
+    }
+    
+    // Apply color to all meshes in the object
+    mesh.traverse((child) => {
+      if (child.isMesh && child.material) {
+        // Clone material to avoid affecting other instances
+        if (!child.material.isCustomMaterial) {
+          child.material = child.material.clone();
+          child.material.isCustomMaterial = true;
+        }
+        child.material.color.setHex(targetColor);
+        
+        // Set emissive color for selection/lock states
+        if (child.material.emissive) {
+          child.material.emissive.setHex(
+            isSelected ? 0x111111 : 
+            isLocked ? SharedUtils.COLORS.LOCKED : 
+            0x000000
+          );
+        }
+      }
+    });
+  }
+};

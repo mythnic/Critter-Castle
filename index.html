@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Cat Tree Builder</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Load SharedUtils FIRST - all other files depend on it -->
+    <script type="text/babel" src="js/sharedUtilities.js"></script>
+    
+    <!-- Load modules in dependency order with correct paths -->
+    <script type="text/babel" src="js/catTreePieces.js"></script>
+    <script type="text/babel" src="js/structuralAnalysis.js"></script>
+    <script type="text/babel" src="js/canvas3d.js"></script>
+    <script type="text/babel" src="js/components/hierarchicalPieceLibrary.js"></script>
+    <script type="text/babel" src="js/components/customizationPanel.js"></script>
+    <script type="text/babel" src="js/components/partsListManagement.js"></script>
+    <script type="text/babel" src="js/components/pieceEditingControls.js"></script>
+    <script type="text/babel" src="js/components/saveDesignModal.js"></script>
+    <script type="text/babel" src="js/components/stressTestPanel.js"></script>
+    <script type="text/babel" src="js/hooks/usePieceManagement.js"></script>
+    <script type="text/babel" src="js/app.js"></script>
+</body>
+</html>

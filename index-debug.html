@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Cat Tree Builder - Debug</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Load SharedUtils FIRST - debug logging -->
+    <script type="text/babel">
+        console.log("🟢 Loading sharedUtilities.js...");
+    </script>
+    <script type="text/babel" src="js/sharedUtilities.js" onload="console.log('✅ sharedUtilities.js loaded')" onerror="console.error('❌ sharedUtilities.js failed')"></script>
+    
+    <!-- Load modules in dependency order with debug logging -->
+    <script type="text/babel">
+        console.log("🟢 Loading catTreePieces.js...");
+    </script>
+    <script type="text/babel" src="js/catTreePieces.js" onload="console.log('✅ catTreePieces.js loaded')" onerror="console.error('❌ catTreePieces.js failed')"></script>
+    <script type="text/babel" src="js/structuralAnalysis.js"></script>
+    <script type="text/babel">
+        console.log("🟢 Loading canvas3d.js...");
+    </script>
+    <script type="text/babel" src="js/canvas3d.js" onload="console.log('✅ canvas3d.js loaded')" onerror="console.error('❌ canvas3d.js failed')"></script>
+    
+    <script type="text/babel">
+        console.log("🟢 Loading components...");
+    </script>
+    <script type="text/babel" src="js/components/hierarchicalPieceLibrary.js" onload="console.log('✅ hierarchicalPieceLibrary.js loaded')" onerror="console.error('❌ hierarchicalPieceLibrary.js failed')"></script>
+    <script type="text/babel" src="js/components/customizationPanel.js"></script>
+    <script type="text/babel" src="js/components/partsListManagement.js" onload="console.log('✅ partsListManagement.js loaded')" onerror="console.error('❌ partsListManagement.js failed')"></script>
+    <script type="text/babel" src="js/components/pieceEditingControls.js" onload="console.log('✅ pieceEditingControls.js loaded')" onerror="console.error('❌ pieceEditingControls.js failed')"></script>
+    <script type="text/babel" src="js/components/saveDesignModal.js" onload="console.log('✅ saveDesignModal.js loaded')" onerror="console.error('❌ saveDesignModal.js failed')"></script>
+    <script type="text/babel" src="js/components/stressTestPanel.js"></script>
+    <script type="text/babel">
+        console.log("🟢 Loading hooks...");
+    </script>
+    <script type="text/babel" src="js/hooks/usePieceManagement.js" onload="console.log('✅ usePieceManagement.js loaded')" onerror="console.error('❌ usePieceManagement.js failed')"></script>
+    
+    <script type="text/babel">
+        console.log("🟢 Loading app.js...");
+    </script>
+    <script type="text/babel" src="js/app.js" onload="console.log('✅ app.js loaded')" onerror="console.error('❌ app.js failed')"></script>
+
+    <script type="text/babel">
+        console.log("🟢 All files loaded, checking if components exist...");
+        console.log("SharedUtils:", typeof SharedUtils !== 'undefined' ? '✅' : '❌');
+        console.log("CatTreePieces:", typeof CatTreePieces !== 'undefined' ? '✅' : '❌');
+        console.log("Canvas3D:", typeof Canvas3D !== 'undefined' ? '✅' : '❌');
+        console.log("hierarchicalPieceLibrary:", typeof HierarchicalPieceLibrary !== 'undefined' ? '✅' : '❌');
+        console.log("CustomizationPanel:", typeof CustomizationPanel !== 'undefined' ? '✅' : '❌');
+        console.log("PartsListManagement:", typeof PartsListManagement !== 'undefined' ? '✅' : '❌');
+        console.log("PieceEditingControls:", typeof PieceEditingControls !== 'undefined' ? '✅' : '❌');
+        console.log("SaveDesignModal:", typeof SaveDesignModal !== 'undefined' ? '✅' : '❌');
+        console.log("usePieceManagement:", typeof usePieceManagement !== 'undefined' ? '✅' : '❌');
+        console.log("CatTreeBuilder:", typeof CatTreeBuilder !== 'undefined' ? '✅' : '❌');
+    </script>
+</body>
+</html>
