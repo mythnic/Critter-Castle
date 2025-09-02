@@ -1,5 +1,5 @@
 // =====================================================
-// OPTIMIZED CAT TREE PIECES SYSTEM -v22- RANDOM COLOR SELECTION
+// OPTIMIZED CAT TREE PIECES SYSTEM -v23- RANDOM COLOR SELECTION
 // =====================================================
 
 // Performance debugging flag
@@ -1371,15 +1371,16 @@ const CatTreePieces = {
   },
 
   /**
-   * Creates a 90-degree curved tunnel
+   * Creates a 90-degree curved tunnel with proper orientation and visibility
+   * FIXED: Corrected curve direction, normals, and end cap positioning
    * @param {Object} piece - Piece object
    * @returns {THREE.Group} Group containing wall meshes
    */
   _createCurved90Tunnel: (piece) => {
     const group = new THREE.Group();
-    const wallThickness = 1.25; // Match the tube tunnel thickness
+    const wallThickness = 1.25;
     
-    // FIXED: Check for undefined/null specifically, not falsy values
+    // Use piece's assigned color, or get a random one if somehow missing
     const color = piece.color !== undefined && piece.color !== null 
       ? piece.color 
       : CatTreePieces.getDefaultColor(piece.variantId);
@@ -1391,55 +1392,69 @@ const CatTreePieces = {
     const scaledHeight = piece.height * SCALE_FACTOR;
     const scaledDepth = piece.depth * SCALE_FACTOR;
     
-    const curveGroup = new THREE.Group();
+    // Calculate proper dimensions for a 90-degree curved tunnel
+    const tubeRadius = scaledHeight / 2;
+    const innerRadius = tubeRadius - wallThickness;
+    const bendRadius = Math.min(scaledWidth, scaledDepth) / 3;
     
-    // Calculate dimensions for the curved tunnel
-    const bendRadius = Math.min(scaledWidth, scaledDepth) / 4; // Radius of the bend
-    const tubeOuterRadius = scaledHeight / 2;
-    const tubeInnerRadius = tubeOuterRadius - wallThickness;
+    // FIXED: Create proper 90-degree curve with correct orientation
+    // Start from positive X, curve down to negative Z (standard orientation)
+    const curve = new THREE.EllipseCurve(
+      0, 0,           // center
+      bendRadius, bendRadius,  // xRadius, yRadius
+      Math.PI, Math.PI * 1.5,  // start angle, end angle (270 degrees total)
+      false,          // clockwise
+      0              // rotation
+    );
     
-    // Create a simple 90-degree curved path
-    const curvePoints = [];
-    const segments = 20;
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      const angle = t * Math.PI / 2; // 90 degrees
-      const x = -bendRadius * Math.cos(angle);
-      const z = -bendRadius * Math.sin(angle);
-      curvePoints.push(new THREE.Vector3(x, 0, z));
-    }
-    const curve = new THREE.CatmullRomCurve3(curvePoints);
+    // Convert to 3D points with proper orientation
+    const points = curve.getPoints(20).map(point => 
+      new THREE.Vector3(point.x, 0, point.y)
+    );
     
-    // Create just the outer tube - no inner tube for true hollow effect
-    const tubeGeom = new THREE.TubeGeometry(curve, segments, tubeOuterRadius, 16, false);
+    const curve3D = new THREE.CatmullRomCurve3(points);
     
-    // Create a proper hollow tube by making the geometry have thickness
-    const hollowTubeGeom = new THREE.TubeGeometry(curve, segments, tubeOuterRadius, 16, false);
-    const innerTubeGeom = new THREE.TubeGeometry(curve, segments, tubeInnerRadius, 16, false);
+    // Create the tube geometry with consistent cross-section
+    const tubeGeometry = new THREE.TubeGeometry(
+      curve3D,      // curve
+      20,           // segments
+      tubeRadius,   // radius
+      16,           // radial segments
+      false         // closed
+    );
     
-    // Use the outer tube only for now (simpler approach)
-    const tubeMesh = new THREE.Mesh(tubeGeom, material);
-    tubeMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'tube' };
-    curveGroup.add(tubeMesh);
+    // Create the main tunnel wall
+    const tunnelMesh = new THREE.Mesh(tubeGeometry, material);
+    tunnelMesh.userData = { isPiece: true, pieceId: piece.id, wallName: 'tunnel' };
+    group.add(tunnelMesh);
     
-    // Add end openings at the correct positions and orientations
-    const endCapGeometry = new THREE.RingGeometry(tubeInnerRadius, tubeOuterRadius, 16);
+    // Create proper end caps with holes (ring geometry)
+    const capGeometry = new THREE.RingGeometry(innerRadius, tubeRadius, 16);
     
-    // Start opening (faces negative X direction)
-    const startCap = new THREE.Mesh(endCapGeometry, material);
-    startCap.position.set(-bendRadius, 0, 0);
-    startCap.rotation.y = Math.PI / 2; // Face outward from the curve
+    // Get the actual start and end points of the curve
+    const startPoint = curve3D.getPoint(0);
+    const endPoint = curve3D.getPoint(1);
+    
+    // Get the tangent vectors at start and end for proper orientation
+    const startTangent = curve3D.getTangent(0).normalize();
+    const endTangent = curve3D.getTangent(1).normalize();
+    
+    // Start cap - positioned at actual curve start
+    const startCap = new THREE.Mesh(capGeometry, material);
+    startCap.position.copy(startPoint);
+    // Orient the cap to face outward from the curve (opposite to tangent direction)
+    startCap.lookAt(startPoint.clone().sub(startTangent));
     startCap.userData = { isPiece: true, pieceId: piece.id, wallName: 'startCap' };
-    curveGroup.add(startCap);
+    group.add(startCap);
     
-    // End opening (faces negative Z direction)
-    const endCap = new THREE.Mesh(endCapGeometry, material);
-    endCap.position.set(0, 0, -bendRadius);
-    endCap.rotation.x = -Math.PI / 2; // Face outward from the curve
+    // End cap - positioned at actual curve end
+    const endCap = new THREE.Mesh(capGeometry, material);
+    endCap.position.copy(endPoint);
+    // FIXED: Orient the cap to face outward from the curve (in tangent direction for end cap)
+    endCap.lookAt(endPoint.clone().add(endTangent));
     endCap.userData = { isPiece: true, pieceId: piece.id, wallName: 'endCap' };
-    curveGroup.add(endCap);
+    group.add(endCap);
     
-    group.add(curveGroup);
     group.userData = { isPiece: true, pieceId: piece.id };
     return group;
   },
