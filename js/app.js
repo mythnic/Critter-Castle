@@ -8,7 +8,7 @@
  * Provides fixed layout with internal scrolling for sidebars to keep canvas centered
  */
 const CatTreeBuilder = () => {
-  const { useState } = React;
+  const { useState, useRef } = React;
   
   // ========================================
   // CORE STATE MANAGEMENT - UI LAYOUT & WORKSPACE
@@ -20,6 +20,14 @@ const CatTreeBuilder = () => {
   // Workspace Configuration
   const [gridWidth, setGridWidth] = useState(6); // 6 feet default
   const [gridHeight, setGridHeight] = useState(6); // 6 feet default
+  
+  // Background Image State
+  const [backgroundImage, setBackgroundImage] = useState(null);
+  const fileInputRef = useRef(null);
+  
+  // Grid Positioning State
+  const [gridOffsetX, setGridOffsetX] = useState(0);
+  const [gridOffsetZ, setGridOffsetZ] = useState(0);
   
   // Toolbox State
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -102,6 +110,70 @@ const CatTreeBuilder = () => {
       console.log(`📁 Loading design file: ${file.name}`);
       loadDesign(file);
     }
+  };
+  
+  /**
+   * Handles background image upload
+   * @param {Event} event - File input change event
+   */
+  const handleBackgroundImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        console.log(`🖼️ Loading background image: ${file.name}`);
+        setBackgroundImage(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    } else if (file) {
+      alert('Please select a valid image file (JPG, PNG, GIF, etc.)');
+    }
+  };
+  
+  /**
+   * Removes the background image
+   */
+  const removeBackgroundImage = () => {
+    console.log('🗑️ Removing background image');
+    setBackgroundImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+  
+  /**
+   * Moves the grid in the specified direction
+   * @param {string} direction - Direction to move ('up', 'down', 'left', 'right')
+   */
+  const moveGrid = (direction) => {
+    const moveAmount = 12; // Move by 1 foot (12 inches) at a time
+    
+    switch (direction) {
+      case 'up':
+        setGridOffsetZ(prev => prev - moveAmount);
+        break;
+      case 'down':
+        setGridOffsetZ(prev => prev + moveAmount);
+        break;
+      case 'left':
+        setGridOffsetX(prev => prev - moveAmount);
+        break;
+      case 'right':
+        setGridOffsetX(prev => prev + moveAmount);
+        break;
+      default:
+        break;
+    }
+    console.log(`📐 Moving grid ${direction} by ${moveAmount} inches`);
+  };
+  
+  /**
+   * Resets the grid to center position
+   */
+  const resetGridPosition = () => {
+    console.log('🎯 Resetting grid position to center');
+    setGridOffsetX(0);
+    setGridOffsetZ(0);
   };
 
   /**
@@ -322,12 +394,103 @@ const CatTreeBuilder = () => {
             ]),
 
             // ========================================
-            // ACTION BUTTONS - SAVE/LOAD/CLEAR/STRESS
+            // ACTION BUTTONS - SAVE/LOAD/CLEAR/STRESS/BACKGROUND
             // ========================================
             React.createElement('div', {
               key: 'action-buttons',
               className: 'flex items-center space-x-2'
             }, [
+              // Background Image Upload Button
+              React.createElement('div', {
+                key: 'background-upload',
+                className: 'relative'
+              }, [
+                React.createElement('input', {
+                  key: 'file-input',
+                  ref: fileInputRef,
+                  type: 'file',
+                  accept: 'image/*',
+                  onChange: handleBackgroundImageUpload,
+                  className: 'hidden',
+                  id: 'background-upload-input'
+                }),
+                React.createElement('button', {
+                  key: 'upload-btn',
+                  onClick: () => fileInputRef.current?.click(),
+                  className: 'px-3 py-2 rounded-lg font-medium flex items-center space-x-2 transition-all duration-200 bg-purple-500 hover:bg-purple-600 text-white shadow-md hover:shadow-lg transform hover:scale-105',
+                  title: backgroundImage ? 'Change background image' : 'Upload room image as background'
+                }, [
+                  React.createElement('span', { key: 'icon' }, '🖼️'),
+                  React.createElement('span', { key: 'text', className: 'text-sm' }, 
+                    backgroundImage ? 'Change' : 'Background'
+                  )
+                ]),
+                // Remove background button (only shown when image is loaded)
+                backgroundImage && React.createElement('button', {
+                  key: 'remove-btn',
+                  onClick: removeBackgroundImage,
+                  className: 'absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md',
+                  title: 'Remove background image'
+                }, '×')
+              ]),
+              
+              // Grid Positioning Controls (only show when background image is loaded)
+              backgroundImage && React.createElement('div', {
+                key: 'grid-position-controls',
+                className: 'flex items-center space-x-1 bg-gray-50 px-2 py-1 rounded-lg border'
+              }, [
+                React.createElement('span', {
+                  key: 'label',
+                  className: 'text-xs font-medium text-gray-700',
+                  title: 'Position workspace grid within background image'
+                }, '🎯'),
+                
+                // Up arrow
+                React.createElement('button', {
+                  key: 'up',
+                  onClick: () => moveGrid('up'),
+                  className: 'w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-bold transition-colors',
+                  title: 'Move grid up'
+                }, '↑'),
+                
+                React.createElement('div', {
+                  key: 'middle-row',
+                  className: 'flex items-center space-x-1'
+                }, [
+                  // Left arrow
+                  React.createElement('button', {
+                    key: 'left',
+                    onClick: () => moveGrid('left'),
+                    className: 'w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-bold transition-colors',
+                    title: 'Move grid left'
+                  }, '←'),
+                  
+                  // Reset button
+                  React.createElement('button', {
+                    key: 'reset',
+                    onClick: resetGridPosition,
+                    className: 'w-6 h-6 bg-gray-400 hover:bg-gray-500 text-white rounded text-xs font-bold transition-colors',
+                    title: 'Reset grid to center'
+                  }, '⌂'),
+                  
+                  // Right arrow
+                  React.createElement('button', {
+                    key: 'right',
+                    onClick: () => moveGrid('right'),
+                    className: 'w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-bold transition-colors',
+                    title: 'Move grid right'
+                  }, '→')
+                ]),
+                
+                // Down arrow
+                React.createElement('button', {
+                  key: 'down',
+                  onClick: () => moveGrid('down'),
+                  className: 'w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-bold transition-colors',
+                  title: 'Move grid down'
+                }, '↓')
+              ]),
+              
               // Save Design Button
               React.createElement('button', {
                 key: 'save',
@@ -484,7 +647,10 @@ const CatTreeBuilder = () => {
           onPieceClick: selectPiece,
           onPieceDrag: dragPiece,
           onOpeningClick: handleOpeningClick,
-          showStressVisualization: showStressVisualization  // NEW: Pass stress visualization state
+          showStressVisualization: showStressVisualization,  // NEW: Pass stress visualization state
+          backgroundImage: backgroundImage,  // NEW: Pass background image
+          gridOffsetX: gridOffsetX,  // NEW: Pass grid X offset
+          gridOffsetZ: gridOffsetZ   // NEW: Pass grid Z offset
         })
       ]),
       

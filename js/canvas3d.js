@@ -13,7 +13,10 @@ const Canvas3D = ({
   gridHeight = 10, 
   openings = [], 
   selectedOpening = null,
-  showStressVisualization = false  // NEW: Control stress visualization
+  showStressVisualization = false,  // NEW: Control stress visualization
+  backgroundImage = null,  // NEW: Background image prop
+  gridOffsetX = 0,  // NEW: Grid position X offset
+  gridOffsetZ = 0   // NEW: Grid position Z offset
 }) => {
   const { useRef, useEffect, useMemo, useCallback, useState } = React;
   
@@ -143,13 +146,97 @@ const Canvas3D = ({
   // ========================================
   
   /**
-   * Creates an optimized grid texture for the ground plane
+   * Preloads an image and returns a Promise that resolves with the loaded image
+   * @param {string} imageSrc - Image source URL or data URL
+   * @returns {Promise<HTMLImageElement>} Promise resolving to loaded image
+   */
+  const preloadImage = useCallback((imageSrc) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Failed to load background image'));
+      img.src = imageSrc;
+    });
+  }, []);
+  
+  /**
+   * Creates a large background plane with the room image
+   * @param {HTMLImageElement} backgroundImg - Preloaded background image
+   * @returns {THREE.Mesh} Background plane mesh
+   */
+  const createBackgroundPlane = useCallback((backgroundImg) => {
+    if (!backgroundImg) return null;
+    
+    console.log('🖼️ Creating scene background plane...');
+    
+    // Create a large background plane (much bigger than workspace)
+    const backgroundSize = Math.max(gridWidth * 12, gridHeight * 12, 200); // At least 200 inches
+    const backgroundGeometry = new THREE.PlaneGeometry(backgroundSize, backgroundSize);
+    
+    // Create texture from the background image
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size to match background geometry (high resolution)
+    const textureSize = 2048;
+    canvas.width = textureSize;
+    canvas.height = textureSize;
+    
+    // Scale image to fill the entire canvas while maintaining aspect ratio
+    const imgAspect = backgroundImg.width / backgroundImg.height;
+    const canvasAspect = 1; // Square canvas
+    
+    let drawWidth, drawHeight, drawX, drawY;
+    
+    if (imgAspect > canvasAspect) {
+      // Image is wider - fit to height and center horizontally
+      drawHeight = textureSize;
+      drawWidth = drawHeight * imgAspect;
+      drawX = (textureSize - drawWidth) / 2;
+      drawY = 0;
+    } else {
+      // Image is taller - fit to width and center vertically  
+      drawWidth = textureSize;
+      drawHeight = drawWidth / imgAspect;
+      drawX = 0;
+      drawY = (textureSize - drawHeight) / 2;
+    }
+    
+    // Fill with neutral background color first
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, textureSize, textureSize);
+    
+    // Draw the background image
+    ctx.drawImage(backgroundImg, drawX, drawY, drawWidth, drawHeight);
+    
+    const backgroundTexture = new THREE.CanvasTexture(canvas);
+    backgroundTexture.needsUpdate = true;
+    
+    const backgroundMaterial = new THREE.MeshLambertMaterial({ 
+      map: backgroundTexture,
+      transparent: false,
+      opacity: 1.0
+    });
+    
+    const backgroundPlane = new THREE.Mesh(backgroundGeometry, backgroundMaterial);
+    
+    // Position behind everything else
+    backgroundPlane.rotation.x = -Math.PI / 2;
+    backgroundPlane.position.y = -0.1; // Slightly below ground level
+    backgroundPlane.userData = { isBackground: true };
+    
+    console.log('✅ Scene background plane created successfully');
+    return backgroundPlane;
+  }, [gridWidth, gridHeight]);
+  
+  /**
+   * Creates an optimized grid texture for the ground plane (grid overlay only)
    * @param {number} widthFeet - Workspace width in feet
    * @param {number} heightFeet - Workspace height in feet
    * @returns {HTMLCanvasElement} Canvas element with grid texture
    */
   const createGridTexture = useCallback((widthFeet, heightFeet) => {
-    console.log(`🎨 Creating optimized ${widthFeet}' x ${heightFeet}' grid texture...`);
+    console.log(`🎨 Creating ${widthFeet}' x ${heightFeet}' grid overlay texture...`);
     
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -171,92 +258,170 @@ const Canvas3D = ({
     
     const borderSize = borderSizeInches * PIXELS_PER_INCH;
     
-    // Draw background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw gray border areas
-    ctx.fillStyle = '#f5f5f5';
-    ctx.fillRect(0, 0, canvas.width, borderSize); // top
-    ctx.fillRect(0, canvas.height - borderSize, canvas.width, borderSize); // bottom
-    ctx.fillRect(0, 0, borderSize, canvas.height); // left
-    ctx.fillRect(canvas.width - borderSize, 0, borderSize, canvas.height); // right
-    
     // Calculate workspace boundaries
     const workspacePixelWidth = workspaceWidthInches * PIXELS_PER_INCH;
     const workspacePixelHeight = workspaceHeightInches * PIXELS_PER_INCH;
     const workspaceLeft = borderSize;
     const workspaceTop = borderSize;
     
-    // Ensure workspace area is white
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(workspaceLeft, workspaceTop, workspacePixelWidth, workspacePixelHeight);
+    // Function to draw the grid overlay
+    const drawGrid = () => {
+      // Draw fine grid lines (6-inch increments) with better visibility
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';  // White with high opacity for visibility
+      ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      ctx.shadowBlur = 1;
+      
+      // Vertical 6-inch lines
+      for (let inches = 0; inches <= workspaceWidthInches; inches += 6) {
+        const x = workspaceLeft + (inches * PIXELS_PER_INCH);
+        ctx.moveTo(x, workspaceTop);
+        ctx.lineTo(x, workspaceTop + workspacePixelHeight);
+      }
+      
+      // Horizontal 6-inch lines
+      for (let inches = 0; inches <= workspaceHeightInches; inches += 6) {
+        const y = workspaceTop + (inches * PIXELS_PER_INCH);
+        ctx.moveTo(workspaceLeft, y);
+        ctx.lineTo(workspaceLeft + workspacePixelWidth, y);
+      }
+      ctx.stroke();
+      
+      // Reset shadow for major lines
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.stroke();
+      
+      // Draw major grid lines (24-inch increments) with better visibility
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)';  // Full white for major lines
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 2;
+      
+      // Vertical 24-inch lines
+      for (let inches = 0; inches <= workspaceWidthInches; inches += 24) {
+        const x = workspaceLeft + (inches * PIXELS_PER_INCH);
+        ctx.moveTo(x, workspaceTop);
+        ctx.lineTo(x, workspaceTop + workspacePixelHeight);
+      }
+      
+      // Horizontal 24-inch lines
+      for (let inches = 0; inches <= workspaceHeightInches; inches += 24) {
+        const y = workspaceTop + (inches * PIXELS_PER_INCH);
+        ctx.moveTo(workspaceLeft, y);
+        ctx.lineTo(workspaceLeft + workspacePixelWidth, y);
+      }
+      ctx.stroke();
+      
+      // Reset shadow after drawing
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+    };
     
-    // Draw fine grid lines (6-inch increments)
-    ctx.beginPath();
-    ctx.strokeStyle = '#dddddd';
+    // Draw transparent background to allow background scene to show through
+    ctx.fillStyle = 'rgba(255, 255, 255, 0)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw semi-transparent gray border areas
+    ctx.fillStyle = 'rgba(245, 245, 245, 0.8)';
+    ctx.fillRect(0, 0, canvas.width, borderSize); // top
+    ctx.fillRect(0, canvas.height - borderSize, canvas.width, borderSize); // bottom
+    ctx.fillRect(0, 0, borderSize, canvas.height); // left
+    ctx.fillRect(canvas.width - borderSize, 0, borderSize, canvas.height); // right
+    
+    // Keep workspace area fully transparent to show background
+    // No need to draw anything in the workspace area
+    
+    // Draw grid overlay (works for both background image and plain grid)
+    drawGrid();
+    
+    // Draw ruler markings and labels
+    drawRulerMarkings(ctx, canvas, borderSize, workspaceLeft, workspaceTop, 
+      workspacePixelWidth, workspacePixelHeight, widthFeet, heightFeet, PIXELS_PER_INCH);
+    
+    console.log('✅ Optimized grid texture created successfully');
+    return canvas;
+  }, []);
+  
+  /**
+   * Helper function to draw ruler markings and labels
+   */
+  const drawRulerMarkings = (ctx, canvas, borderSize, workspaceLeft, workspaceTop, 
+    workspacePixelWidth, workspacePixelHeight, widthFeet, heightFeet, PIXELS_PER_INCH) => {
+    
+    // Draw ruler markings on borders
+    ctx.strokeStyle = '#999999';
     ctx.lineWidth = 1;
+    ctx.fillStyle = '#666666';
+    ctx.font = `${Math.max(10, borderSize * 0.3)}px Arial`;
     
-    // Vertical 6-inch lines
-    for (let inches = 0; inches <= workspaceWidthInches; inches += 6) {
-      const x = workspaceLeft + (inches * PIXELS_PER_INCH);
-      ctx.moveTo(x, workspaceTop);
-      ctx.lineTo(x, workspaceTop + workspacePixelHeight);
+    // Top ruler (X-axis)
+    for (let feet = 0; feet <= widthFeet; feet++) {
+      const x = workspaceLeft + (feet * 12 * PIXELS_PER_INCH);
+      
+      // Major tick
+      ctx.beginPath();
+      ctx.moveTo(x, borderSize - 10);
+      ctx.lineTo(x, borderSize);
+      ctx.stroke();
+      
+      // Label
+      ctx.textAlign = 'center';
+      ctx.fillText(`${feet}'`, x, borderSize/2);
     }
     
-    // Horizontal 6-inch lines
-    for (let inches = 0; inches <= workspaceHeightInches; inches += 6) {
-      const y = workspaceTop + (inches * PIXELS_PER_INCH);
-      ctx.moveTo(workspaceLeft, y);
-      ctx.lineTo(workspaceLeft + workspacePixelWidth, y);
-    }
-    ctx.stroke();
-    
-    // Draw major grid lines (24-inch increments)
-    ctx.beginPath();
-    ctx.strokeStyle = '#888888';
-    ctx.lineWidth = 2;
-    
-    // Vertical 24-inch lines
-    for (let inches = 0; inches <= workspaceWidthInches; inches += 24) {
-      const x = workspaceLeft + (inches * PIXELS_PER_INCH);
-      ctx.moveTo(x, workspaceTop);
-      ctx.lineTo(x, workspaceTop + workspacePixelHeight);
+    // Minor ticks (1-foot intervals)
+    for (let feet = 1; feet < widthFeet; feet++) {
+      const x = workspaceLeft + (feet * 12 * PIXELS_PER_INCH);
+      ctx.beginPath();
+      ctx.moveTo(x, borderSize - 5);
+      ctx.lineTo(x, borderSize);
+      ctx.stroke();
     }
     
-    // Horizontal 24-inch lines
-    for (let inches = 0; inches <= workspaceHeightInches; inches += 24) {
-      const y = workspaceTop + (inches * PIXELS_PER_INCH);
-      ctx.moveTo(workspaceLeft, y);
-      ctx.lineTo(workspaceLeft + workspacePixelWidth, y);
-    }
-    ctx.stroke();
-    
-    // Add measurement labels
-    ctx.fillStyle = '#000000';
-    ctx.font = `bold ${Math.max(16, borderSize * 0.3)}px Arial`;
+    // Left ruler (Z-axis) - adjusted for Three.js coordinates
+    ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
-    // X-axis measurements
-    for (let displayFeet = 0; displayFeet <= widthFeet; displayFeet++) {
-      const x = workspaceLeft + (displayFeet * 12 * PIXELS_PER_INCH);
-      ctx.fillRect(x - 1, canvas.height - borderSize, 2, borderSize/3);
-      ctx.fillText(`${displayFeet}'`, x, canvas.height - borderSize/2);
-    }
-    
-    // Z-axis measurements (rotated text)
-    ctx.save();
-    for (let displayFeet = 0; displayFeet <= heightFeet; displayFeet++) {
-      const y = workspaceTop + workspacePixelHeight - (displayFeet * 12 * PIXELS_PER_INCH);
-      ctx.fillRect(0, y - 1, borderSize/3, 2);
+    for (let feet = 0; feet <= heightFeet; feet++) {
+      const y = workspaceTop + workspacePixelHeight - (feet * 12 * PIXELS_PER_INCH);
+      
+      // Major tick
+      ctx.beginPath();
+      ctx.moveTo(borderSize - 10, y);
+      ctx.lineTo(borderSize, y);
+      ctx.stroke();
+      
+      // Label - display feet value based on Three.js Z coordinate
+      const displayFeet = heightFeet - feet;
+      ctx.fillStyle = '#666666';
+      ctx.font = `${Math.max(10, borderSize * 0.3)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // Save context for rotation
+      const labelX = borderSize/2;
+      const labelY = y;
       
       ctx.save();
-      ctx.translate(borderSize/2, y);
+      ctx.translate(labelX, labelY);
       ctx.rotate(-Math.PI/2);
       ctx.fillText(`${displayFeet}'`, 0, 0);
       ctx.restore();
     }
+    
+    // Minor ticks (1-foot intervals)
+    for (let feet = 1; feet < heightFeet; feet++) {
+      const y = workspaceTop + workspacePixelHeight - (feet * 12 * PIXELS_PER_INCH);
+      ctx.beginPath();
+      ctx.moveTo(borderSize - 5, y);
+      ctx.lineTo(borderSize, y);
+      ctx.stroke();
+    }
+    
     ctx.restore();
     
     // Add axis labels
@@ -279,10 +444,7 @@ const Canvas3D = ({
     const markerSize = Math.max(8, borderSize * 0.15);
     ctx.fillRect(originX - 2, originY - markerSize, 4, markerSize);
     ctx.fillRect(originX - markerSize, originY - 2, markerSize, 4);
-    
-    console.log('✅ Optimized grid texture created successfully');
-    return canvas;
-  }, []);
+  };
 
   // ========================================
   // MOUSE INTERACTION UTILITIES
@@ -435,7 +597,7 @@ const Canvas3D = ({
       scene.add(groundPlane);
 
       // Visible textured ground
-      const gridTexture = new THREE.CanvasTexture(createGridTexture(gridWidth, gridHeight));
+      const gridTexture = new THREE.CanvasTexture(createGridTexture(gridWidth, gridHeight, backgroundImage));
       gridTexture.needsUpdate = true;
       
       const workspaceWidthInches = gridWidth * 12;
@@ -751,7 +913,7 @@ const Canvas3D = ({
   useEffect(() => {
     if (!sceneRef.current) return;
     
-    console.log(`🔄 Updating grid to ${gridWidth}' x ${gridHeight}'`);
+    console.log(`🔄 Updating grid to ${gridWidth}' x ${gridHeight}'${backgroundImage ? ' with background image' : ''}`);
     
     try {
       // Remove existing ground
@@ -761,29 +923,86 @@ const Canvas3D = ({
         sceneRef.current.remove(existingGround);
       }
 
-      // Create new grid
-      const gridTexture = new THREE.CanvasTexture(createGridTexture(gridWidth, gridHeight));
-      gridTexture.needsUpdate = true;
-      
-      const workspaceWidthInches = gridWidth * 12;
-      const workspaceHeightInches = gridHeight * 12;
-      
-      const groundGeometry = new THREE.PlaneGeometry(workspaceWidthInches, workspaceHeightInches);
-      const groundMaterial = new THREE.MeshLambertMaterial({ 
-        map: gridTexture,
-        transparent: true
-      });
-      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-      ground.rotation.x = -Math.PI / 2;
-      ground.receiveShadow = true;
-      ground.userData = { isGround: true };
-      sceneRef.current.add(ground);
+      // Create new moveable grid overlay (background handled separately)
+      const createGridAndAddToScene = () => {
+        // Create transparent grid overlay that shows scene background through it
+        const gridTexture = new THREE.CanvasTexture(createGridTexture(gridWidth, gridHeight));
+        gridTexture.needsUpdate = true;
+        
+        const workspaceWidthInches = gridWidth * 12;
+        const workspaceHeightInches = gridHeight * 12;
+        
+        const groundGeometry = new THREE.PlaneGeometry(workspaceWidthInches, workspaceHeightInches);
+        const groundMaterial = new THREE.MeshLambertMaterial({ 
+          map: gridTexture,
+          transparent: true
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.x = gridOffsetX;
+        ground.position.z = gridOffsetZ;
+        ground.position.y = 0; // At ground level, above scene background
+        ground.receiveShadow = false; // Grid overlay doesn't need shadows
+        ground.userData = { isGround: true };
+        sceneRef.current.add(ground);
 
-      console.log(`✅ Grid updated successfully`);
+        console.log(`✅ Grid updated successfully at offset (${gridOffsetX}, ${gridOffsetZ})`);
+      };
+      
+      // Execute the grid creation
+      createGridAndAddToScene();
     } catch (error) {
       console.error('❌ Error updating grid:', error);
     }
-  }, [gridWidth, gridHeight, createGridTexture]);
+  }, [gridWidth, gridHeight, gridOffsetX, gridOffsetZ, createGridTexture]);
+
+  // ========================================
+  // BACKGROUND IMAGE MANAGEMENT - SEPARATE FROM GRID
+  // ========================================
+  
+  /**
+   * Manages the scene background image independently of grid updates
+   * Sets the image as the scene's background (truly stationary, doesn't move with camera)
+   */
+  useEffect(() => {
+    if (!sceneRef.current) return;
+    
+    console.log(`🎨 Managing scene background${backgroundImage ? ' - setting image' : ' - removing image'}`);
+    
+    try {
+      if (backgroundImage) {
+        const setSceneBackground = async () => {
+          try {
+            const preloadedImage = await preloadImage(backgroundImage);
+            console.log('✅ Scene background image preloaded');
+            
+            // Create texture from the image
+            const backgroundTexture = new THREE.TextureLoader().load(backgroundImage);
+            backgroundTexture.needsUpdate = true;
+            
+            // Set as scene background - this makes it truly stationary
+            sceneRef.current.background = backgroundTexture;
+            console.log('✅ Scene background set - image will not move with camera');
+            
+          } catch (error) {
+            console.warn('⚠️ Failed to set scene background:', error.message);
+            // Fall back to default background color
+            sceneRef.current.background = new THREE.Color(0xf8fafc);
+          }
+        };
+        
+        setSceneBackground();
+      } else {
+        // Remove background image, revert to default color
+        sceneRef.current.background = new THREE.Color(0xf8fafc);
+        console.log('🗑️ Scene background reset to default color');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error managing scene background:', error);
+      sceneRef.current.background = new THREE.Color(0xf8fafc);
+    }
+  }, [backgroundImage, preloadImage]);
 
   // ========================================
   // SCENE OBJECTS UPDATE - FIXED ROTATION ORDER FOR PANELS
@@ -1169,6 +1388,11 @@ const Canvas3D = ({
           key: 'stress-info',
           className: 'text-xs text-orange-600 font-medium'
         }, '⚖️ Stress visualization active: Green=Safe, Yellow=Caution, Orange=Warning, Red=Critical'),
+        backgroundImage && React.createElement('br', { key: 'br4' }),
+        backgroundImage && React.createElement('span', {
+          key: 'bg-info',
+          className: 'text-xs text-purple-600 font-medium'
+        }, '🖼️ Background image loaded - Grid overlay shown for reference'),
         React.createElement('div', {
           key: 'auto-hide-info',
           className: 'text-xs text-gray-400 mt-1 italic'
