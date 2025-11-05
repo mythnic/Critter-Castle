@@ -992,22 +992,51 @@ const Canvas3D = ({
           try {
             const preloadedImage = await preloadImage(backgroundImage);
             console.log('✅ Scene background image preloaded');
-            
-            // Create texture from the image
-            const backgroundTexture = new THREE.TextureLoader().load(backgroundImage);
-            backgroundTexture.needsUpdate = true;
-            
+
+            // Load texture and configure for aspect ratio preservation
+            const backgroundTexture = new THREE.TextureLoader().load(backgroundImage, (texture) => {
+              // Get the actual image dimensions
+              const img = texture.image;
+              const imageAspect = img.width / img.height;
+
+              // Get renderer/viewport aspect ratio
+              const renderer = rendererRef.current;
+              if (!renderer) return;
+
+              const viewportAspect = renderer.domElement.width / renderer.domElement.height;
+
+              console.log(`📐 Image aspect: ${imageAspect.toFixed(2)}, Viewport aspect: ${viewportAspect.toFixed(2)}`);
+
+              // Calculate offset and repeat to maintain aspect ratio
+              if (imageAspect > viewportAspect) {
+                // Image is wider than viewport (landscape in portrait viewport, or very wide landscape)
+                // Fit height, center horizontally
+                const scale = viewportAspect / imageAspect;
+                texture.repeat.set(scale, 1);
+                texture.offset.set((1 - scale) / 2, 0);
+              } else {
+                // Image is taller than viewport (portrait, or landscape in very wide viewport)
+                // Fit width, center vertically
+                const scale = imageAspect / viewportAspect;
+                texture.repeat.set(1, scale);
+                texture.offset.set(0, (1 - scale) / 2);
+              }
+
+              texture.needsUpdate = true;
+              console.log(`✅ Background aspect ratio preserved - repeat: [${texture.repeat.x.toFixed(2)}, ${texture.repeat.y.toFixed(2)}], offset: [${texture.offset.x.toFixed(2)}, ${texture.offset.y.toFixed(2)}]`);
+            });
+
             // Set as scene background - this makes it truly stationary
             sceneRef.current.background = backgroundTexture;
             console.log('✅ Scene background set - image will not move with camera');
-            
+
           } catch (error) {
             console.warn('⚠️ Failed to set scene background:', error.message);
             // Fall back to default background color
             sceneRef.current.background = new THREE.Color(0xf8fafc);
           }
         };
-        
+
         setSceneBackground();
       } else {
         // Remove background image, revert to default color
