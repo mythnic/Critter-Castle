@@ -21,17 +21,6 @@ Visit the live demo: [https://mythnic.github.io/Critter-Castle/](https://mythnic
 ### Online Use
 Simply visit the live demo link above to start designing!
 
-### Local Development
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/mythnic/Critter-Castle.git
-   cd Critter-Castle
-   ```
-
-2. Open `index.html` in your web browser
-
-No build process or dependencies required - it's a pure client-side application!
-
 ## How to Use
 
 1. **Add Pieces**: Select components from the piece library on the left
@@ -48,10 +37,23 @@ No build process or dependencies required - it's a pure client-side application!
 - Tailwind CSS for styling
 - Pure JavaScript (no build step required)
 
-## Contributing
+## Feedback & Bug Reports
 
-Contributions are welcome! Feel free to submit issues or pull requests.
+Found a bug or have a suggestion? Please open an issue on GitHub!
 
 ## License
 
-MIT License - See LICENSE file for details
+Copyright (c) 2025 mythnic. All Rights Reserved.
+
+This is proprietary software. The source code is publicly visible for transparency and testing purposes only.
+
+**You may:**
+- Use the hosted application
+- Report bugs and provide feedback
+
+**You may NOT:**
+- Copy, redistribute, or sell this software
+- Create derivative works
+- Use this software for commercial purposes without permission
+
+See the [LICENSE](LICENSE) file for full details.
