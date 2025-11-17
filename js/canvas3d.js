@@ -941,6 +941,13 @@ const Canvas3D = ({
         sceneRef.current.remove(existingGround);
       }
 
+      // Remove existing measurement pillar
+      const existingPillar = sceneRef.current.children.find(child => child.userData.isMeasurementPillar);
+      if (existingPillar) {
+        cleanupGeometry(existingPillar);
+        sceneRef.current.remove(existingPillar);
+      }
+
       // Create new moveable grid overlay (background handled separately)
       const createGridAndAddToScene = () => {
         // Create transparent grid overlay that shows scene background through it
@@ -966,9 +973,63 @@ const Canvas3D = ({
 
         console.log(`✅ Grid updated successfully`);
       };
-      
+
+      // Create measurement pillar for size reference
+      const createMeasurementPillar = () => {
+        const pillarGroup = new THREE.Group();
+        pillarGroup.userData = { isMeasurementPillar: true };
+
+        const workspaceWidthInches = gridWidth * 12;
+        const workspaceHeightInches = gridHeight * 12;
+
+        // Post dimensions - made thicker and more visible
+        const postRadius = 3; // 3 inch radius (6" diameter)
+        const maxHeight = 72; // 6 feet tall (72 inches)
+
+        // Main post (blue color for high visibility)
+        const postGeometry = new THREE.CylinderGeometry(postRadius, postRadius, maxHeight, 16);
+        const postMaterial = new THREE.MeshLambertMaterial({ color: 0x4169e1 }); // Royal blue
+        const post = new THREE.Mesh(postGeometry, postMaterial);
+        post.position.y = maxHeight / 2; // Center at half height
+        post.castShadow = true;
+        post.receiveShadow = true;
+        pillarGroup.add(post);
+
+        // Add bright green marker rings every 12 inches (1 foot)
+        const markerMaterial = new THREE.MeshLambertMaterial({ color: 0x00ff00 }); // Bright green
+        const markerThickness = 2; // 2 inch thick markers (more visible)
+        const markerRadius = postRadius + 1; // Slightly larger than post
+
+        for (let height = 12; height <= maxHeight; height += 12) {
+          const markerGeometry = new THREE.CylinderGeometry(markerRadius, markerRadius, markerThickness, 16);
+          const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+          marker.position.y = height;
+          marker.castShadow = true;
+          pillarGroup.add(marker);
+        }
+
+        // Position pillar at the back-right corner outside the grid
+        const offset = 12; // 12 inches outside grid edge (more visible)
+        pillarGroup.position.x = (workspaceWidthInches / 2) + offset;
+        pillarGroup.position.z = (workspaceHeightInches / 2) + offset;
+
+        console.log(`📏 Created measurement pillar at position (${pillarGroup.position.x}, ${pillarGroup.position.z}) - ${maxHeight}" tall with ${maxHeight/12} markers`);
+
+        return pillarGroup;
+      };
+
       // Execute the grid creation
       createGridAndAddToScene();
+
+      // Add measurement pillar
+      console.log('🔧 About to create measurement pillar...');
+      try {
+        const measurementPillar = createMeasurementPillar();
+        sceneRef.current.add(measurementPillar);
+        console.log(`✅ Measurement pillar added to scene at (${measurementPillar.position.x}, ${measurementPillar.position.y}, ${measurementPillar.position.z})`);
+      } catch (pillarError) {
+        console.error('❌ Error creating measurement pillar:', pillarError);
+      }
     } catch (error) {
       console.error('❌ Error updating grid:', error);
     }
