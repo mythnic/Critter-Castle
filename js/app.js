@@ -24,10 +24,9 @@ const CatTreeBuilder = () => {
   // Background Image State
   const [backgroundImage, setBackgroundImage] = useState(null);
   const fileInputRef = useRef(null);
-  
-  // Grid Positioning State
-  const [gridOffsetX, setGridOffsetX] = useState(0);
-  const [gridOffsetZ, setGridOffsetZ] = useState(0);
+  const [bgOffsetX, setBgOffsetX] = useState(0);
+  const [bgOffsetY, setBgOffsetY] = useState(0);
+  const [bgZoom, setBgZoom] = useState(1.0);
   
   // Toolbox State
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -145,35 +144,50 @@ const CatTreeBuilder = () => {
    * Moves the grid in the specified direction
    * @param {string} direction - Direction to move ('up', 'down', 'left', 'right')
    */
-  const moveGrid = (direction) => {
-    const moveAmount = 12; // Move by 1 foot (12 inches) at a time
-    
+  const moveBackground = (direction) => {
+    const moveAmount = 0.05; // Move by 5% at a time
+
     switch (direction) {
       case 'up':
-        setGridOffsetZ(prev => prev - moveAmount);
+        setBgOffsetY(prev => prev + moveAmount);
         break;
       case 'down':
-        setGridOffsetZ(prev => prev + moveAmount);
+        setBgOffsetY(prev => prev - moveAmount);
         break;
       case 'left':
-        setGridOffsetX(prev => prev - moveAmount);
+        setBgOffsetX(prev => prev + moveAmount);
         break;
       case 'right':
-        setGridOffsetX(prev => prev + moveAmount);
+        setBgOffsetX(prev => prev - moveAmount);
         break;
       default:
         break;
     }
-    console.log(`📐 Moving grid ${direction} by ${moveAmount} inches`);
+    console.log(`🖼️ Moving background ${direction}`);
   };
-  
+
   /**
-   * Resets the grid to center position
+   * Zooms the background image in or out
+   * @param {string} direction - 'in' or 'out'
    */
-  const resetGridPosition = () => {
-    console.log('🎯 Resetting grid position to center');
-    setGridOffsetX(0);
-    setGridOffsetZ(0);
+  const zoomBackground = (direction) => {
+    const zoomAmount = 0.1;
+    if (direction === 'in') {
+      setBgZoom(prev => Math.min(prev + zoomAmount, 3.0)); // Max 3x zoom
+    } else {
+      setBgZoom(prev => Math.max(prev - zoomAmount, 0.5)); // Min 0.5x zoom
+    }
+    console.log(`🔍 Zooming background ${direction}`);
+  };
+
+  /**
+   * Resets the background to center position and default zoom
+   */
+  const resetBackgroundPosition = () => {
+    console.log('🎯 Resetting background position and zoom');
+    setBgOffsetX(0);
+    setBgOffsetY(0);
+    setBgZoom(1.0);
   };
 
   /**
@@ -448,11 +462,11 @@ const CatTreeBuilder = () => {
                 // Up arrow
                 React.createElement('button', {
                   key: 'up',
-                  onClick: () => moveGrid('up'),
+                  onClick: () => moveBackground('up'),
                   className: 'w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-bold transition-colors',
-                  title: 'Move grid up'
+                  title: 'Move background up'
                 }, '↑'),
-                
+
                 React.createElement('div', {
                   key: 'middle-row',
                   className: 'flex items-center space-x-1'
@@ -460,35 +474,54 @@ const CatTreeBuilder = () => {
                   // Left arrow
                   React.createElement('button', {
                     key: 'left',
-                    onClick: () => moveGrid('left'),
+                    onClick: () => moveBackground('left'),
                     className: 'w-6 h-6 bg-app-mint-500 hover:bg-app-mint-600 text-white rounded text-xs font-bold transition-colors',
-                    title: 'Move grid left'
+                    title: 'Move background left'
                   }, '←'),
-                  
+
                   // Reset button
                   React.createElement('button', {
                     key: 'reset',
-                    onClick: resetGridPosition,
+                    onClick: resetBackgroundPosition,
                     className: 'w-6 h-6 bg-app-purple-400 hover:bg-app-purple-500 text-white rounded text-xs font-bold transition-colors',
-                    title: 'Reset grid to center'
+                    title: 'Reset background position and zoom'
                   }, '⌂'),
-                  
+
                   // Right arrow
                   React.createElement('button', {
                     key: 'right',
-                    onClick: () => moveGrid('right'),
+                    onClick: () => moveBackground('right'),
                     className: 'w-6 h-6 bg-app-mint-500 hover:bg-app-mint-600 text-white rounded text-xs font-bold transition-colors',
-                    title: 'Move grid right'
+                    title: 'Move background right'
                   }, '→')
                 ]),
-                
+
                 // Down arrow
                 React.createElement('button', {
                   key: 'down',
-                  onClick: () => moveGrid('down'),
+                  onClick: () => moveBackground('down'),
                   className: 'w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-bold transition-colors',
-                  title: 'Move grid down'
-                }, '↓')
+                  title: 'Move background down'
+                }, '↓'),
+
+                // Zoom controls
+                React.createElement('div', {
+                  key: 'zoom-controls',
+                  className: 'flex items-center space-x-1 mt-1'
+                }, [
+                  React.createElement('button', {
+                    key: 'zoom-out',
+                    onClick: () => zoomBackground('out'),
+                    className: 'w-6 h-6 bg-app-pink-500 hover:bg-app-pink-600 text-white rounded text-xs font-bold transition-colors',
+                    title: 'Zoom background out'
+                  }, '−'),
+                  React.createElement('button', {
+                    key: 'zoom-in',
+                    onClick: () => zoomBackground('in'),
+                    className: 'w-6 h-6 bg-app-pink-500 hover:bg-app-pink-600 text-white rounded text-xs font-bold transition-colors',
+                    title: 'Zoom background in'
+                  }, '+')
+                ])
               ]),
               
               // Save Design Button
@@ -647,10 +680,11 @@ const CatTreeBuilder = () => {
           onPieceClick: selectPiece,
           onPieceDrag: dragPiece,
           onOpeningClick: handleOpeningClick,
-          showStressVisualization: showStressVisualization,  // NEW: Pass stress visualization state
-          backgroundImage: backgroundImage,  // NEW: Pass background image
-          gridOffsetX: gridOffsetX,  // NEW: Pass grid X offset
-          gridOffsetZ: gridOffsetZ   // NEW: Pass grid Z offset
+          showStressVisualization: showStressVisualization,  // Pass stress visualization state
+          backgroundImage: backgroundImage,  // Pass background image
+          bgOffsetX: bgOffsetX,  // Background X offset
+          bgOffsetY: bgOffsetY,  // Background Y offset
+          bgZoom: bgZoom  // Background zoom level
         })
       ]),
       

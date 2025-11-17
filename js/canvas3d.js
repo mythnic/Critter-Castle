@@ -13,10 +13,11 @@ const Canvas3D = ({
   gridHeight = 10, 
   openings = [], 
   selectedOpening = null,
-  showStressVisualization = false,  // NEW: Control stress visualization
-  backgroundImage = null,  // NEW: Background image prop
-  gridOffsetX = 0,  // NEW: Grid position X offset
-  gridOffsetZ = 0   // NEW: Grid position Z offset
+  showStressVisualization = false,  // Control stress visualization
+  backgroundImage = null,  // Background image prop
+  bgOffsetX = 0,  // Background X offset
+  bgOffsetY = 0,  // Background Y offset
+  bgZoom = 1.0    // Background zoom level
 }) => {
   const { useRef, useEffect, useMemo, useCallback, useState } = React;
   
@@ -956,14 +957,14 @@ const Canvas3D = ({
         });
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = -Math.PI / 2;
-        ground.position.x = gridOffsetX;
-        ground.position.z = gridOffsetZ;
+        ground.position.x = 0;
+        ground.position.z = 0;
         ground.position.y = 0; // At ground level, above scene background
         ground.receiveShadow = false; // Grid overlay doesn't need shadows
         ground.userData = { isGround: true };
         sceneRef.current.add(ground);
 
-        console.log(`✅ Grid updated successfully at offset (${gridOffsetX}, ${gridOffsetZ})`);
+        console.log(`✅ Grid updated successfully`);
       };
       
       // Execute the grid creation
@@ -971,7 +972,7 @@ const Canvas3D = ({
     } catch (error) {
       console.error('❌ Error updating grid:', error);
     }
-  }, [gridWidth, gridHeight, gridOffsetX, gridOffsetZ, createGridTexture]);
+  }, [gridWidth, gridHeight, createGridTexture]);
 
   // ========================================
   // BACKGROUND IMAGE MANAGEMENT - SEPARATE FROM GRID
@@ -993,7 +994,7 @@ const Canvas3D = ({
             const preloadedImage = await preloadImage(backgroundImage);
             console.log('✅ Scene background image preloaded');
 
-            // Load texture and configure for aspect ratio preservation
+            // Load texture and configure for aspect ratio preservation + zoom + offset
             const backgroundTexture = new THREE.TextureLoader().load(backgroundImage, (texture) => {
               // Get the actual image dimensions
               const img = texture.image;
@@ -1005,25 +1006,42 @@ const Canvas3D = ({
 
               const viewportAspect = renderer.domElement.width / renderer.domElement.height;
 
-              console.log(`📐 Image aspect: ${imageAspect.toFixed(2)}, Viewport aspect: ${viewportAspect.toFixed(2)}`);
+              console.log(`📐 Image aspect: ${imageAspect.toFixed(2)}, Viewport aspect: ${viewportAspect.toFixed(2)}, Zoom: ${bgZoom.toFixed(2)}`);
 
-              // Calculate offset and repeat to maintain aspect ratio
+              // Calculate base scale to maintain aspect ratio
+              let baseRepeatX, baseRepeatY, baseOffsetX, baseOffsetY;
+
               if (imageAspect > viewportAspect) {
                 // Image is wider than viewport (landscape in portrait viewport, or very wide landscape)
                 // Fit height, center horizontally
                 const scale = viewportAspect / imageAspect;
-                texture.repeat.set(scale, 1);
-                texture.offset.set((1 - scale) / 2, 0);
+                baseRepeatX = scale;
+                baseRepeatY = 1;
+                baseOffsetX = (1 - scale) / 2;
+                baseOffsetY = 0;
               } else {
                 // Image is taller than viewport (portrait, or landscape in very wide viewport)
                 // Fit width, center vertically
                 const scale = imageAspect / viewportAspect;
-                texture.repeat.set(1, scale);
-                texture.offset.set(0, (1 - scale) / 2);
+                baseRepeatX = 1;
+                baseRepeatY = scale;
+                baseOffsetX = 0;
+                baseOffsetY = (1 - scale) / 2;
               }
 
+              // Apply zoom (zoom affects repeat - smaller repeat = more zoomed in)
+              const zoomedRepeatX = baseRepeatX / bgZoom;
+              const zoomedRepeatY = baseRepeatY / bgZoom;
+
+              // Apply user offset (offset moves the texture)
+              const finalOffsetX = baseOffsetX + bgOffsetX;
+              const finalOffsetY = baseOffsetY + bgOffsetY;
+
+              texture.repeat.set(zoomedRepeatX, zoomedRepeatY);
+              texture.offset.set(finalOffsetX, finalOffsetY);
               texture.needsUpdate = true;
-              console.log(`✅ Background aspect ratio preserved - repeat: [${texture.repeat.x.toFixed(2)}, ${texture.repeat.y.toFixed(2)}], offset: [${texture.offset.x.toFixed(2)}, ${texture.offset.y.toFixed(2)}]`);
+
+              console.log(`✅ Background configured - repeat: [${zoomedRepeatX.toFixed(2)}, ${zoomedRepeatY.toFixed(2)}], offset: [${finalOffsetX.toFixed(2)}, ${finalOffsetY.toFixed(2)}]`);
             });
 
             // Set as scene background - this makes it truly stationary
@@ -1048,7 +1066,7 @@ const Canvas3D = ({
       console.error('❌ Error managing scene background:', error);
       sceneRef.current.background = new THREE.Color(0xf8fafc);
     }
-  }, [backgroundImage, preloadImage]);
+  }, [backgroundImage, bgOffsetX, bgOffsetY, bgZoom, preloadImage]);
 
   // ========================================
   // SCENE OBJECTS UPDATE - FIXED ROTATION ORDER FOR PANELS
