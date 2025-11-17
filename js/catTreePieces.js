@@ -384,15 +384,6 @@ const CatTreePieces = {
           availableMaterials: ['wood', 'sisal'], 
           availableColors: true,
           description: 'Panel with slotted areas to attach sisal climbing rocks (panel comes with 4 sisal rocks) and other climbing accessories'
-        },
-        {
-          id: 'panel-honeycomb', 
-          name: 'Honeycomb Panel', 
-          baseWidth: 18, baseHeight: 24, baseDepth: 1.5, baseCost: 12,
-          hollow: false, shape: 'honeycomb-panel', 
-          availableMaterials: ['wood', 'fabric'], 
-          availableColors: true,
-          description: 'Panel with hexagonal pattern for climbing and scratching'
         }
       ]
     },
@@ -569,6 +560,55 @@ const CatTreePieces = {
   // ========================================
   
   /**
+   * Helper function to create material with appropriate texture based on piece properties
+   * @param {Object} piece - Piece object with material and color properties
+   * @returns {THREE.MeshLambertMaterial} Configured material
+   */
+  _createMaterialForPiece: (piece) => {
+    // Get the color for this piece
+    const color = piece.color !== undefined && piece.color !== null
+      ? piece.color
+      : CatTreePieces.getRandomColor();
+
+    // Rock wall panels always use rock texture regardless of material
+    if (piece.shape === 'rock-wall-panel') {
+      const texture = CatTreePieces._createRockWallTexture(512, 512, color);
+      return new THREE.MeshLambertMaterial({ map: texture });
+    }
+
+    // Apply material-specific textures based on the piece's material property
+    if (piece.material) {
+      let texture;
+      switch (piece.material) {
+        case 'sisal':
+          texture = CatTreePieces._createSisalTexture(512, 512, color);
+          break;
+        case 'carpet':
+          texture = CatTreePieces._createCarpetTexture(512, 512, color);
+          break;
+        case 'fabric':
+          texture = CatTreePieces._createFabricTexture(512, 512, color);
+          break;
+        case 'wood':
+          texture = CatTreePieces._createWoodTexture(512, 512, color);
+          break;
+        case 'cushion':
+          // Cushion uses a soft solid color appearance
+          return new THREE.MeshLambertMaterial({ color });
+        default:
+          // Default to solid color if material not recognized
+          return new THREE.MeshLambertMaterial({ color });
+      }
+      if (texture) {
+        return new THREE.MeshLambertMaterial({ map: texture });
+      }
+    }
+
+    // No material specified or no texture, use solid color
+    return new THREE.MeshLambertMaterial({ color });
+  },
+
+  /**
    * Creates a rock wall texture pattern
    * @param {number} width - Texture width
    * @param {number} height - Texture height
@@ -618,59 +658,276 @@ const CatTreePieces = {
   },
 
   /**
-   * Creates a honeycomb texture pattern
+   * Creates a sisal rope wrap texture pattern
    * @param {number} width - Texture width
    * @param {number} height - Texture height
-   * @param {number} baseColor - Base color for honeycomb
-   * @returns {THREE.CanvasTexture} Honeycomb texture
+   * @param {number} baseColor - Base color for sisal (ignored - always natural sisal color)
+   * @returns {THREE.CanvasTexture} Sisal texture
    */
-  _createHoneycombTexture: (width = 512, height = 512, baseColor = 0xFFD700) => {
+  _createSisalTexture: (width = 512, height = 512, baseColor = 0xD2B48C) => {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
-    
+
+    // Force natural sisal color (wheat/tan)
+    const sisalBeige = { r: 222, g: 200, b: 160 }; // Warm beige/wheat color
+
+    // Fill background with base sisal color
+    ctx.fillStyle = `rgb(${sisalBeige.r}, ${sisalBeige.g}, ${sisalBeige.b})`;
+    ctx.fillRect(0, 0, width, height);
+
+    // Draw thicker horizontal rope strands
+    const ropeSpacing = 12; // Increased from 8 for thicker rope appearance
+    for (let y = 0; y < height; y += ropeSpacing) {
+      // Shadow/groove between ropes (darker)
+      ctx.strokeStyle = `rgb(${sisalBeige.r - 50}, ${sisalBeige.g - 50}, ${sisalBeige.b - 40})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+
+      // Main rope body (medium)
+      ctx.strokeStyle = `rgb(${sisalBeige.r - 20}, ${sisalBeige.g - 20}, ${sisalBeige.b - 15})`;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(0, y + 2);
+      ctx.lineTo(width, y + 2);
+      ctx.stroke();
+
+      // Highlight on top of rope (lighter)
+      ctx.strokeStyle = `rgb(${Math.min(255, sisalBeige.r + 20)}, ${Math.min(255, sisalBeige.g + 20)}, ${Math.min(255, sisalBeige.b + 15)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, y + 4);
+      ctx.lineTo(width, y + 4);
+      ctx.stroke();
+    }
+
+    // Add fiber texture with more visible strands
+    ctx.strokeStyle = `rgba(${sisalBeige.r - 60}, ${sisalBeige.g - 60}, ${sisalBeige.b - 50}, 0.4)`;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 300; i++) {
+      const x = Math.random() * width;
+      const y = Math.random() * height;
+      const length = 5 + Math.random() * 10;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + length, y);
+      ctx.stroke();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 2); // Reduced repeat for thicker appearance
+    return texture;
+  },
+
+  /**
+   * Creates a carpet texture pattern with fluffy appearance
+   * @param {number} width - Texture width
+   * @param {number} height - Texture height
+   * @param {number} baseColor - Base color for carpet
+   * @returns {THREE.CanvasTexture} Carpet texture
+   */
+  _createCarpetTexture: (width = 512, height = 512, baseColor = 0x8B7355) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
     // Convert hex color to RGB
     const r = (baseColor >> 16) & 255;
     const g = (baseColor >> 8) & 255;
     const b = baseColor & 255;
-    
-    // Fill background
-    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+
+    // Fill background with slightly darker base
+    ctx.fillStyle = `rgb(${Math.max(0, r - 10)}, ${Math.max(0, g - 10)}, ${Math.max(0, b - 10)})`;
     ctx.fillRect(0, 0, width, height);
-    
-    // Honeycomb parameters
-    const hexSize = 30;
-    const hexHeight = hexSize * Math.sqrt(3);
-    
-    ctx.strokeStyle = `rgb(${Math.max(0, r-40)}, ${Math.max(0, g-40)}, ${Math.max(0, b-40)})`;
-    ctx.lineWidth = 3;
-    
-    // Draw hexagonal pattern
-    for (let row = 0; row < height / hexHeight + 2; row++) {
-      for (let col = 0; col < width / (hexSize * 1.5) + 2; col++) {
-        const x = col * hexSize * 1.5;
-        const y = row * hexHeight + (col % 2) * hexHeight / 2;
-        
+
+    // Create fluffy carpet texture with clustered fiber tufts
+    const numTufts = 400;
+    for (let i = 0; i < numTufts; i++) {
+      const tufX = Math.random() * width;
+      const tufY = Math.random() * height;
+      const tufSize = 3 + Math.random() * 4;
+      const brightness = -20 + Math.random() * 40;
+
+      // Create radial gradient for each tuft (fluffy appearance)
+      const gradient = ctx.createRadialGradient(tufX, tufY, 0, tufX, tufY, tufSize);
+      gradient.addColorStop(0, `rgb(${Math.max(0, Math.min(255, r + brightness + 20))}, ${Math.max(0, Math.min(255, g + brightness + 20))}, ${Math.max(0, Math.min(255, b + brightness + 20))})`);
+      gradient.addColorStop(0.5, `rgb(${Math.max(0, Math.min(255, r + brightness))}, ${Math.max(0, Math.min(255, g + brightness))}, ${Math.max(0, Math.min(255, b + brightness))})`);
+      gradient.addColorStop(1, `rgba(${Math.max(0, Math.min(255, r + brightness - 10))}, ${Math.max(0, Math.min(255, g + brightness - 10))}, ${Math.max(0, Math.min(255, b + brightness - 10))}, 0.5)`);
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(tufX, tufY, tufSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Add additional small fibers for texture depth
+    for (let i = 0; i < 2000; i++) {
+      const x = Math.random() * width;
+      const y = Math.random() * height;
+      const brightness = -25 + Math.random() * 50;
+      const size = 1 + Math.random() * 2;
+
+      ctx.fillStyle = `rgba(${Math.max(0, Math.min(255, r + brightness))}, ${Math.max(0, Math.min(255, g + brightness))}, ${Math.max(0, Math.min(255, b + brightness))}, 0.6)`;
+      ctx.fillRect(x, y, size, size);
+    }
+
+    // Add very subtle directional brushing for carpet pile direction
+    ctx.strokeStyle = `rgba(${Math.max(0, r-30)}, ${Math.max(0, g-30)}, ${Math.max(0, b-30)}, 0.08)`;
+    ctx.lineWidth = 2;
+    for (let y = 0; y < height; y += 8) {
+      for (let x = 0; x < width; x += 16) {
+        const angle = Math.sin(x * 0.02) * 0.3;
+        const len = 8 + Math.random() * 4;
         ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-          const angle = (i * Math.PI) / 3;
-          const hexX = x + hexSize * Math.cos(angle);
-          const hexY = y + hexSize * Math.sin(angle);
-          if (i === 0) ctx.moveTo(hexX, hexY);
-          else ctx.lineTo(hexX, hexY);
-        }
-        ctx.closePath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
         ctx.stroke();
       }
     }
-    
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 2);
+    return texture;
+  },
+
+  /**
+   * Creates a fabric texture pattern
+   * @param {number} width - Texture width
+   * @param {number} height - Texture height
+   * @param {number} baseColor - Base color for fabric
+   * @returns {THREE.CanvasTexture} Fabric texture
+   */
+  _createFabricTexture: (width = 512, height = 512, baseColor = 0xA0A0A0) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    // Convert hex color to RGB
+    const r = (baseColor >> 16) & 255;
+    const g = (baseColor >> 8) & 255;
+    const b = baseColor & 255;
+
+    // Fill background
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.fillRect(0, 0, width, height);
+
+    // Create woven fabric pattern
+    const weaveSize = 4;
+    for (let y = 0; y < height; y += weaveSize) {
+      for (let x = 0; x < width; x += weaveSize) {
+        // Checkerboard weave pattern
+        const isLight = ((x / weaveSize) + (y / weaveSize)) % 2 === 0;
+        const brightness = isLight ? 10 : -10;
+        ctx.fillStyle = `rgb(${Math.max(0, Math.min(255, r + brightness))}, ${Math.max(0, Math.min(255, g + brightness))}, ${Math.max(0, Math.min(255, b + brightness))})`;
+        ctx.fillRect(x, y, weaveSize, weaveSize);
+      }
+    }
+
+    // Add subtle fabric texture noise
+    for (let i = 0; i < 500; i++) {
+      const x = Math.random() * width;
+      const y = Math.random() * height;
+      const brightness = -5 + Math.random() * 10;
+      ctx.fillStyle = `rgba(${Math.max(0, Math.min(255, r + brightness))}, ${Math.max(0, Math.min(255, g + brightness))}, ${Math.max(0, Math.min(255, b + brightness))}, 0.3)`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+    return texture;
+  },
+
+  /**
+   * Creates a wood grain texture pattern
+   * @param {number} width - Texture width
+   * @param {number} height - Texture height
+   * @param {number} baseColor - Base color for wood
+   * @returns {THREE.CanvasTexture} Wood texture
+   */
+  _createWoodTexture: (width = 512, height = 512, baseColor = 0x8B4513) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    // Convert hex color to RGB
+    const r = (baseColor >> 16) & 255;
+    const g = (baseColor >> 8) & 255;
+    const b = baseColor & 255;
+
+    // Fill background
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.fillRect(0, 0, width, height);
+
+    // Create vertical wood grain with natural variation
+    const grainLines = 150;
+    for (let i = 0; i < grainLines; i++) {
+      const x = (i / grainLines) * width;
+      const variation = Math.sin(i * 0.3) * 15 + Math.sin(i * 0.1) * 25;
+      const brightness = -25 + Math.random() * 15;
+
+      ctx.strokeStyle = `rgba(${Math.max(0, r + brightness)}, ${Math.max(0, g + brightness)}, ${Math.max(0, b + brightness)}, 0.3)`;
+      ctx.lineWidth = 1 + Math.random() * 2;
+
+      ctx.beginPath();
+      ctx.moveTo(x + variation, 0);
+
+      // Create wavy vertical line
+      for (let y = 0; y < height; y += 10) {
+        const wave = Math.sin(y * 0.03) * 8 + Math.sin(y * 0.01) * 15;
+        ctx.lineTo(x + variation + wave, y);
+      }
+      ctx.stroke();
+    }
+
+    // Add subtle horizontal grain
+    for (let y = 0; y < height; y += 20) {
+      const brightness = -10 + Math.random() * 5;
+      ctx.strokeStyle = `rgba(${Math.max(0, r + brightness)}, ${Math.max(0, g + brightness)}, ${Math.max(0, b + brightness)}, 0.1)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+
+    // Add subtle wood knots (smaller and fewer)
+    const numKnots = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < numKnots; i++) {
+      const knotX = Math.random() * width;
+      const knotY = Math.random() * height;
+      const knotSize = 15 + Math.random() * 25;
+
+      // Draw subtle concentric ovals for knot
+      for (let radius = knotSize; radius > 0; radius -= 4) {
+        const darkness = (knotSize - radius) / knotSize * 40;
+        ctx.strokeStyle = `rgba(${Math.max(0, r - darkness)}, ${Math.max(0, g - darkness)}, ${Math.max(0, b - darkness)}, 0.3)`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(knotX, knotY, radius * 0.8, radius * 0.5, Math.random() * Math.PI * 0.2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set(1, 1);
     return texture;
   },
+
 
   // ========================================
   // GEOMETRY CREATION SYSTEM - SOLID PIECES
@@ -706,18 +963,9 @@ const CatTreePieces = {
     }
     
     log(`🔧 Creating solid ${piece.name}: ${piece.width}" x ${piece.height}" x ${piece.depth}" (${piece.shape}) with color 0x${color.toString(16).padStart(6, '0')}`);
-    
-    // Create material with texture for special panel types
-    let material;
-    if (piece.shape === 'rock-wall-panel') {
-      const texture = CatTreePieces._createRockWallTexture(512, 512, color);
-      material = new THREE.MeshLambertMaterial({ map: texture });
-    } else if (piece.shape === 'honeycomb-panel') {
-      const texture = CatTreePieces._createHoneycombTexture(512, 512, color);
-      material = new THREE.MeshLambertMaterial({ map: texture });
-    } else {
-      material = new THREE.MeshLambertMaterial({ color });
-    }
+
+    // Create material with texture based on material type or special shapes
+    const material = CatTreePieces._createMaterialForPiece(piece);
     let geometry;
     
     try {
@@ -926,10 +1174,7 @@ const CatTreePieces = {
       case 'rock-wall-panel':
         const rockGeom = new THREE.BoxGeometry(width, height, depth);
         return rockGeom;
-        
-      case 'honeycomb-panel':
-        return new THREE.BoxGeometry(width, height, depth);
-        
+
       case 'lshaped':
         return CatTreePieces._createLShapedGeometry(width, height, depth);
         
@@ -1357,13 +1602,9 @@ const CatTreePieces = {
   _createHollowBox: (piece) => {
     const group = new THREE.Group();
     const wallThickness = 0.75;
-    
-    // Use piece's assigned color, or get a random one if somehow missing
-    const color = piece.color !== undefined && piece.color !== null 
-      ? piece.color 
-      : CatTreePieces.getRandomColor();
-    
-    const material = new THREE.MeshLambertMaterial({ color });
+
+    // Create material with appropriate texture based on piece's material property
+    const material = CatTreePieces._createMaterialForPiece(piece);
     
     const SCALE_FACTOR = 0.96;
     const [scaledWidth, scaledHeight, scaledDepth, scaledWallThickness] = [
@@ -1409,13 +1650,9 @@ const CatTreePieces = {
   _createHollowAFrame: (piece) => {
     const group = new THREE.Group();
     const wallThickness = 0.75;
-    
-    // FIXED: Check for undefined/null specifically, not falsy values
-    const color = piece.color !== undefined && piece.color !== null 
-      ? piece.color 
-      : CatTreePieces.getDefaultColor(piece.variantId);
-    
-    const material = new THREE.MeshLambertMaterial({ color });
+
+    // Create material with appropriate texture based on piece's material property
+    const material = CatTreePieces._createMaterialForPiece(piece);
     
     const SCALE_FACTOR = 0.96;
     const [scaledWidth, scaledHeight, scaledDepth, scaledWallThickness] = [
@@ -1484,13 +1721,9 @@ const CatTreePieces = {
   _createHollowCylinder: (piece) => {
     const group = new THREE.Group();
     const wallThickness = 0.75;
-    
-    // FIXED: Check for undefined/null specifically, not falsy values
-    const color = piece.color !== undefined && piece.color !== null 
-      ? piece.color 
-      : CatTreePieces.getDefaultColor(piece.variantId);
-    
-    const material = new THREE.MeshLambertMaterial({ color });
+
+    // Create material with appropriate texture based on piece's material property
+    const material = CatTreePieces._createMaterialForPiece(piece);
     
     const SCALE_FACTOR = 0.96;
     const scaledRadius = (piece.width * SCALE_FACTOR) / 2;
@@ -1539,13 +1772,9 @@ const CatTreePieces = {
   _createHollowTunnel: (piece) => {
     const group = new THREE.Group();
     const wallThickness = 0.75;
-    
-    // FIXED: Check for undefined/null specifically, not falsy values
-    const color = piece.color !== undefined && piece.color !== null 
-      ? piece.color 
-      : CatTreePieces.getDefaultColor(piece.variantId);
-    
-    const material = new THREE.MeshLambertMaterial({ color });
+
+    // Create material with appropriate texture based on piece's material property
+    const material = CatTreePieces._createMaterialForPiece(piece);
     
     const SCALE_FACTOR = 0.96;
     const [scaledWidth, scaledHeight, scaledDepth, scaledWallThickness] = [
@@ -1593,13 +1822,9 @@ const CatTreePieces = {
   _createTubeTunnel: (piece) => {
     const group = new THREE.Group();
     const wallThickness = 1.25;
-    
-    // FIXED: Check for undefined/null specifically, not falsy values
-    const color = piece.color !== undefined && piece.color !== null 
-      ? piece.color 
-      : CatTreePieces.getDefaultColor(piece.variantId);
-    
-    const material = new THREE.MeshLambertMaterial({ color });
+
+    // Create material with appropriate texture based on piece's material property
+    const material = CatTreePieces._createMaterialForPiece(piece);
     
     const SCALE_FACTOR = 0.96;
     const scaledLength = piece.width * SCALE_FACTOR;
@@ -1665,13 +1890,9 @@ const CatTreePieces = {
   _createCurved90Tunnel: (piece) => {
     const group = new THREE.Group();
     const wallThickness = 1.25;
-    
-    // Use piece's assigned color, or get a random one if somehow missing
-    const color = piece.color !== undefined && piece.color !== null 
-      ? piece.color 
-      : CatTreePieces.getDefaultColor(piece.variantId);
-    
-    const material = new THREE.MeshLambertMaterial({ color });
+
+    // Create material with appropriate texture based on piece's material property
+    const material = CatTreePieces._createMaterialForPiece(piece);
     
     const SCALE_FACTOR = 0.96;
     const scaledWidth = piece.width * SCALE_FACTOR;
@@ -1753,13 +1974,9 @@ const CatTreePieces = {
   _createRampTunnel: (piece) => {
     const group = new THREE.Group();
     const wallThickness = 0.75;
-    
-    // FIXED: Check for undefined/null specifically, not falsy values
-    const color = piece.color !== undefined && piece.color !== null 
-      ? piece.color 
-      : CatTreePieces.getDefaultColor(piece.variantId);
-    
-    const material = new THREE.MeshLambertMaterial({ color });
+
+    // Create material with appropriate texture based on piece's material property
+    const material = CatTreePieces._createMaterialForPiece(piece);
     
     const SCALE_FACTOR = 0.96;
     const [scaledWidth, scaledHeight, scaledDepth, scaledWallThickness] = [
@@ -1842,7 +2059,7 @@ const CatTreePieces = {
     let geometry;
     switch (opening.shape) {
       case 'circle':
-        geometry = new THREE.RingGeometry(opening.width/2 - 0.2, opening.width/2, 16);
+        geometry = new THREE.CircleGeometry(opening.width/2, 32);
         break;
       case 'arch':
         const archShape = new THREE.Shape();

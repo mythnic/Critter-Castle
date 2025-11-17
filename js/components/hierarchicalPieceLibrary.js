@@ -74,12 +74,11 @@ const CompactToolbox = ({ addPieceFromVariant, selectedCategory, setSelectedCate
   const getVariantIcon = useCallback((variant) => {
     const iconMap = {
       'cylinder': '○',
-      'box': '□', 
+      'box': '□',
       'aframe': '△',
       'triangle': '▲',
       'panel': '▬',
       'triangle-panel': '◤',
-      'honeycomb-panel': '⬢',
       'rock-wall-panel': '🗻',
       'climbing-rock': '🪨'
     };
